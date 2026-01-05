@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { BalanceIndicator } from '@/components/BalanceIndicator'
+import { PunchClassButton } from '@/components/PunchClassButton'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -170,15 +171,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
       {/* Fixed Bottom CTA */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg">
         <div className="max-w-3xl mx-auto">
-          <button
-            disabled
-            className="w-full bg-blue-600 text-white text-xl font-bold py-4 px-6 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            👊 PUNCH CLASS
-          </button>
-          <p className="text-center text-xs text-gray-500 mt-2">
-            Punch functionality coming in next update
-          </p>
+          <PunchClassButton clientId={client.id} clientName={client.name} />
         </div>
       </div>
     </div>

@@ -169,6 +169,80 @@ From PRD requirements:
 - **Glanceable**: Red/yellow/green balance indicators
 - **Mobile keyboard optimizations**: `inputMode="numeric"` for phone/PIN inputs
 
+## Implemented Features
+
+### Client Management (GYM-14, GYM-13, GYM-12)
+
+**Client List** (`/clients`):
+- Displays all clients with balance indicators (🔴 negative, 🟡 low ≤3, 🟢 healthy >3)
+- Sortable by: Recent (default), Name, Balance
+- Empty state for new trainers
+- Server Component that fetches data on page load
+- Uses `ClientList` component for sorting (Client Component)
+- `ClientCard` component for each client
+- `LogoutButton` component for logout (must use POST, not GET)
+
+**Add Client** (`/clients/new`):
+- Form with validation: name (required, ≥2 chars), phone (optional, valid Indian mobile), rate (₹100-₹10,000)
+- Converts rate from rupees to paise before storing
+- Creates client, initial rate_history entry, and audit log
+- Client Component with form state management
+- API: `POST /api/clients`
+
+**Client Detail** (`/clients/[id]`):
+- Shows client name, balance (large), rate, balance status text
+- Color-coded balance display (red/yellow/green)
+- Recent punches list (last 10, newest first)
+- Empty state for clients with no punches yet
+- Large "PUNCH CLASS" button (fixed at bottom for thumb reach)
+- Placeholder action buttons (Payment, History, Export, Edit) for future features
+- Server Component that fetches client and punch data
+
+### Punch Tracking (GYM-11)
+
+**Punch Class Action**:
+- `PunchClassButton` component - large CTA at bottom of client detail page
+- Date picker modal (defaults to today, allows up to 3 months back, no future dates)
+- Records punch, decrements balance by 1, logs to audit trail
+- Success feedback: checkmark animation + haptic vibration (if supported)
+- Auto-refreshes page to show updated balance and punch list
+- API: `POST /api/clients/[id]/punches`
+- Validates dates: no future, max 3 months old
+- Transaction-safe: rolls back punch if balance update fails
+
+### Components Library
+
+**Reusable Components** (`components/`):
+- `BalanceIndicator` - Visual status dot (red/yellow/green) based on balance
+- `ClientCard` - Client list item with name, balance, rate, clickable
+- `ClientList` - Sortable client list with filter controls
+- `PunchClassButton` - Primary action button with date picker modal
+- `LogoutButton` - Logout with POST request handling
+- `PhoneInput` - Custom phone input for Indian mobile numbers
+- `PinInput` - 4-digit PIN input with auto-focus
+
+### API Endpoints
+
+**Authentication** (`app/api/auth/`):
+- `POST /api/auth/signup` - Create trainer account (phone + PIN)
+- `POST /api/auth/login` - Login and create session
+- `POST /api/auth/logout` - Delete session (must be POST!)
+
+**Clients** (`app/api/clients/`):
+- `POST /api/clients` - Create new client
+  - Body: `{ name, phone?, rate }` (rate in rupees, converted to paise)
+  - Creates client, rate_history, audit_log
+  - Returns: `{ client }`
+
+**Punches** (`app/api/clients/[id]/punches/`):
+- `POST /api/clients/[id]/punches` - Record a class
+  - Body: `{ date }` (ISO date string)
+  - Validates: no future dates, max 3 months back
+  - Decrements balance by 1, logs PUNCH_ADD
+  - Returns: `{ punch, newBalance, previousBalance }`
+
+**Note**: All protected endpoints check session via `getSession()` and return 401 if not authenticated.
+
 ## Common Patterns
 
 ### Adding a New Protected Page
@@ -236,7 +310,7 @@ When building authenticated pages that need to query the database (e.g., client 
 2. **Client Components** (For interactive mutations):
    - Use API routes (e.g., `/api/clients/route.ts`) that verify session and query via admin client
    - Call API routes from client components using `fetch()`
-   - Currently, the `/clients` page is a placeholder client component with just a logout button
+   - Example: `PunchClassButton` component calls `POST /api/clients/[id]/punches`
 
 ## PRD Reference
 
@@ -245,10 +319,14 @@ See `prd.md` for full product requirements. Key points:
 **MVP Critical Path**:
 1. Foundation (setup, database) ✅ Complete
 2. Auth (phone/PIN) ✅ Complete
-3. Clients (list, add, detail) - In Progress (placeholder page exists at `/clients`)
-4. Punch tracking - Not Started
-5. Payment logging - Not Started
-6. Balance indicators - Not Started
+3. Clients (list, add, detail) ✅ Complete
+   - GYM-14: Client list with sorting and balance indicators
+   - GYM-13: Add client form with validation
+   - GYM-12: Client detail page
+4. Punch tracking ✅ Complete
+   - GYM-11: Punch class action with date picker
+5. Payment logging - In Progress (Next)
+6. Balance indicators ✅ Complete (integrated into client list/detail)
 
 **Out of Scope**:
 - Scheduling/calendar
