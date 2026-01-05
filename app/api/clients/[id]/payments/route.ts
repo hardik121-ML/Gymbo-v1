@@ -1,0 +1,167 @@
+// ============================================================================
+// Payments API Routes
+// ============================================================================
+// Handles payment recording for clients
+// ============================================================================
+
+import { NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth/session'
+import { createAdminClient } from '@/lib/supabase/admin'
+
+interface RouteContext {
+  params: Promise<{ id: string }>
+}
+
+// POST /api/clients/[id]/payments - Log a payment
+export async function POST(request: Request, context: RouteContext) {
+  try {
+    const { id: clientId } = await context.params
+
+    // Check authentication
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Parse request body
+    const body = await request.json()
+    const { amount, classesAdded, date } = body
+
+    // Validate amount (in paise)
+    if (!amount || typeof amount !== 'number' || amount <= 0) {
+      return NextResponse.json(
+        { error: 'Amount must be a positive number' },
+        { status: 400 }
+      )
+    }
+
+    // Validate classes added
+    if (!classesAdded || typeof classesAdded !== 'number' || classesAdded <= 0) {
+      return NextResponse.json(
+        { error: 'Classes added must be a positive number' },
+        { status: 400 }
+      )
+    }
+
+    // Validate date
+    if (!date || typeof date !== 'string') {
+      return NextResponse.json(
+        { error: 'Date is required' },
+        { status: 400 }
+      )
+    }
+
+    // Parse and validate date
+    const paymentDate = new Date(date)
+    if (isNaN(paymentDate.getTime())) {
+      return NextResponse.json(
+        { error: 'Invalid date format' },
+        { status: 400 }
+      )
+    }
+
+    const supabase = createAdminClient()
+
+    // Verify client exists and belongs to trainer
+    const { data: clientData, error: clientError } = await supabase
+      .from('clients')
+      .select('id, balance, trainer_id, current_rate')
+      .eq('id', clientId)
+      .eq('trainer_id', session.trainerId)
+      .single()
+
+    if (clientError || !clientData) {
+      return NextResponse.json(
+        { error: 'Client not found' },
+        { status: 404 }
+      )
+    }
+
+    const client = clientData as any
+    const previousBalance = client.balance
+    const rateAtPayment = client.current_rate
+
+    // Create payment record
+    const { data: paymentData, error: paymentError } = await supabase
+      .from('payments')
+      .insert({
+        client_id: clientId,
+        amount: amount,
+        classes_added: classesAdded,
+        rate_at_payment: rateAtPayment,
+        payment_date: date,
+      } as any)
+      .select()
+      .single()
+
+    if (paymentError) {
+      console.error('Error creating payment:', paymentError)
+      return NextResponse.json(
+        { error: 'Failed to record payment' },
+        { status: 500 }
+      )
+    }
+
+    const payment = paymentData as any
+
+    // Increment client balance
+    const newBalance = previousBalance + classesAdded
+    const updateResult: any = await (supabase.from('clients') as any)
+      .update({
+        balance: newBalance,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', clientId)
+
+    const { error: balanceError } = updateResult
+
+    if (balanceError) {
+      console.error('Error updating balance:', balanceError)
+      // Try to delete the payment to maintain consistency
+      await supabase
+        .from('payments')
+        .delete()
+        .eq('id', payment.id)
+
+      return NextResponse.json(
+        { error: 'Failed to update balance' },
+        { status: 500 }
+      )
+    }
+
+    // Log to audit trail
+    const { error: auditError } = await supabase
+      .from('audit_log')
+      .insert({
+        trainer_id: session.trainerId,
+        client_id: clientId,
+        action: 'PAYMENT_ADD',
+        details: {
+          amount: amount,
+          classes_added: classesAdded,
+          rate_at_payment: rateAtPayment,
+          payment_date: date,
+          payment_id: payment.id,
+        },
+        previous_balance: previousBalance,
+        new_balance: newBalance,
+      } as any)
+
+    if (auditError) {
+      console.error('Error creating audit log:', auditError)
+      // Don't fail the whole request, just log it
+    }
+
+    return NextResponse.json({
+      payment,
+      newBalance,
+      previousBalance,
+    }, { status: 201 })
+  } catch (error) {
+    console.error('Unexpected error in POST /api/clients/[id]/payments:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { BalanceIndicator } from '@/components/BalanceIndicator'
 import { PunchClassButton } from '@/components/PunchClassButton'
+import { LogPaymentButton } from '@/components/LogPaymentButton'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -137,12 +138,12 @@ export default async function ClientDetailPage({ params }: PageProps) {
 
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-3 mb-6">
-          <button
-            disabled
-            className="bg-gray-100 text-gray-400 font-medium py-3 px-4 rounded-lg cursor-not-allowed"
-          >
-            💰 Log Payment
-          </button>
+          <LogPaymentButton
+            clientId={client.id}
+            clientName={client.name}
+            currentBalance={client.balance}
+            currentRate={client.current_rate}
+          />
           <button
             disabled
             className="bg-gray-100 text-gray-400 font-medium py-3 px-4 rounded-lg cursor-not-allowed"
@@ -162,10 +163,6 @@ export default async function ClientDetailPage({ params }: PageProps) {
             ✏️ Edit Client
           </button>
         </div>
-
-        <p className="text-center text-sm text-gray-500">
-          Action buttons coming soon
-        </p>
       </main>
 
       {/* Fixed Bottom CTA */}

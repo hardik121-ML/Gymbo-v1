@@ -210,13 +210,30 @@ From PRD requirements:
 - Validates dates: no future, max 3 months old
 - Transaction-safe: rolls back punch if balance update fails
 
+### Payment Logging (GYM-6)
+
+**Log Payment Action**:
+- `LogPaymentButton` component - button in action grid on client detail page
+- Modal form with amount, classes, and date fields
+- **Auto-calculation**: Amount ÷ Rate = Classes (Math.floor for rounding down)
+- Shows calculation: "₹8000 ÷ ₹800 = 10 classes"
+- **Manual override**: Click ✎ to edit classes, click again to reset to auto-calculated
+- **Balance preview**: Shows "current + classes = new balance" before saving
+- Payment date picker (defaults to today)
+- Records payment, increments balance, logs PAYMENT_ADD to audit trail
+- API: `POST /api/clients/[id]/payments`
+- Stores rate_at_payment for historical accuracy
+- Transaction-safe: rolls back payment if balance update fails
+- **Edge case**: When amount doesn't divide evenly (e.g., ₹3500 at ₹3000/class), rounds down to 1 class but records full ₹3500. Trainer can manually override.
+
 ### Components Library
 
 **Reusable Components** (`components/`):
 - `BalanceIndicator` - Visual status dot (red/yellow/green) based on balance
 - `ClientCard` - Client list item with name, balance, rate, clickable
 - `ClientList` - Sortable client list with filter controls
-- `PunchClassButton` - Primary action button with date picker modal
+- `PunchClassButton` - Primary action button with date picker modal (decreases balance)
+- `LogPaymentButton` - Payment form button with modal (increases balance)
 - `LogoutButton` - Logout with POST request handling
 - `PhoneInput` - Custom phone input for Indian mobile numbers
 - `PinInput` - 4-digit PIN input with auto-focus
@@ -241,7 +258,15 @@ From PRD requirements:
   - Decrements balance by 1, logs PUNCH_ADD
   - Returns: `{ punch, newBalance, previousBalance }`
 
-**Note**: All protected endpoints check session via `getSession()` and return 401 if not authenticated.
+**Payments** (`app/api/clients/[id]/payments/`):
+- `POST /api/clients/[id]/payments` - Log a payment
+  - Body: `{ amount, classesAdded, date }` (amount in paise)
+  - Validates: amount > 0, classesAdded > 0, valid date
+  - Increments balance by classesAdded, logs PAYMENT_ADD
+  - Stores rate_at_payment for historical tracking
+  - Returns: `{ payment, newBalance, previousBalance }`
+
+**Note**: All protected endpoints check session via `getSession()` and return 401 if not authenticated. Punch and payment endpoints are transaction-safe - they rollback on failure.
 
 ## Common Patterns
 
@@ -325,7 +350,8 @@ See `prd.md` for full product requirements. Key points:
    - GYM-12: Client detail page
 4. Punch tracking ✅ Complete
    - GYM-11: Punch class action with date picker
-5. Payment logging - In Progress (Next)
+5. Payment logging ✅ Complete
+   - GYM-6: Log payment form with auto-calculation
 6. Balance indicators ✅ Complete (integrated into client list/detail)
 
 **Out of Scope**:
