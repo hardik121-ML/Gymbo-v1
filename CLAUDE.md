@@ -192,15 +192,23 @@ From PRD requirements:
 **Client Detail** (`/clients/[id]`):
 - Shows client name, balance (large), rate, balance status text
 - Color-coded balance display (red/yellow/green)
-- Recent punches list (last 10, newest first)
+- **Negative balance alert** - Red warning banner when balance < 0, shows amount owed and "Log Payment" CTA
+- Recent punches list (last 10, newest first) with edit/delete buttons
 - Empty state for clients with no punches yet
 - Large "PUNCH CLASS" button (fixed at bottom for thumb reach)
-- Placeholder action buttons (Payment, History, Export, Edit) for future features
+- Action buttons: Log Payment, View History (active), Export PDF (disabled), Edit Client (disabled)
 - Server Component that fetches client and punch data
 
-### Punch Tracking (GYM-11)
+**Payment History** (`/clients/[id]/history`):
+- Table view of all payments for a client
+- Shows: date, amount (₹), classes added, rate at payment time
+- Summary totals at bottom
+- Empty state when no payments exist
+- Server Component that fetches payment data
 
-**Punch Class Action**:
+### Punch Tracking (GYM-11, GYM-8, GYM-9)
+
+**Punch Class Action** (GYM-11):
 - `PunchClassButton` component - large CTA at bottom of client detail page
 - Date picker modal (defaults to today, allows up to 3 months back, no future dates)
 - Records punch, decrements balance by 1, logs to audit trail
@@ -210,9 +218,26 @@ From PRD requirements:
 - Validates dates: no future, max 3 months old
 - Transaction-safe: rolls back punch if balance update fails
 
-### Payment Logging (GYM-6)
+**Remove Punch** (GYM-8):
+- `PunchListItem` component with edit (✎) and delete (✕) buttons
+- Delete flow: confirmation → strike-through animation → 5-second undo snackbar → success
+- Soft delete: sets `is_deleted = true` on punch record
+- Restores balance (+1 class) when punch is removed
+- Haptic feedback at each step
+- API: `DELETE /api/punches/[id]`
+- Logs PUNCH_REMOVE to audit trail
 
-**Log Payment Action**:
+**Edit Punch Date** (GYM-9):
+- Edit button (✎) on each punch opens date picker modal
+- Pre-filled with current punch date
+- Validates: within last 3 months, no future dates
+- Balance remains unchanged (still counts as 1 punch)
+- API: `PATCH /api/punches/[id]`
+- Logs PUNCH_EDIT with old and new dates to audit trail
+
+### Payment Management (GYM-6, GYM-4, GYM-1)
+
+**Log Payment Action** (GYM-6):
 - `LogPaymentButton` component - button in action grid on client detail page
 - Modal form with amount, classes, and date fields
 - **Auto-calculation**: Amount ÷ Rate = Classes (Math.floor for rounding down)
@@ -226,6 +251,23 @@ From PRD requirements:
 - Transaction-safe: rolls back payment if balance update fails
 - **Edge case**: When amount doesn't divide evenly (e.g., ₹3500 at ₹3000/class), rounds down to 1 class but records full ₹3500. Trainer can manually override.
 
+**Payment History View** (GYM-4):
+- Accessible from "View History" button on client detail page
+- Route: `/clients/[id]/history`
+- Table view showing all payments in reverse chronological order
+- Columns: Date, Amount (₹), Classes added, Rate at time of payment
+- Summary footer with totals (total amount, total classes)
+- Empty state with friendly message when no payments exist
+- Read-only view (no edit/delete in MVP)
+
+**Negative Balance Alert** (GYM-1):
+- `NegativeBalanceAlert` component shows when balance < 0
+- Prominent red warning banner on client detail page
+- Displays: "X classes on credit" and calculated amount owed
+- "Log Payment" CTA button that triggers payment modal
+- Non-blocking, informational only (trainer can still punch classes)
+- Client list already shows red indicator for negative balances via `BalanceIndicator`
+
 ### Components Library
 
 **Reusable Components** (`components/`):
@@ -233,7 +275,10 @@ From PRD requirements:
 - `ClientCard` - Client list item with name, balance, rate, clickable
 - `ClientList` - Sortable client list with filter controls
 - `PunchClassButton` - Primary action button with date picker modal (decreases balance)
+- `PunchListItem` - Individual punch row with edit (✎) and delete (✕) buttons
 - `LogPaymentButton` - Payment form button with modal (increases balance)
+- `NegativeBalanceAlert` - Red warning banner for negative balances with CTA
+- `ClientDetailActions` - Wrapper that manages alert and payment button interaction
 - `LogoutButton` - Logout with POST request handling
 - `PhoneInput` - Custom phone input for Indian mobile numbers
 - `PinInput` - 4-digit PIN input with auto-focus
@@ -251,12 +296,25 @@ From PRD requirements:
   - Creates client, rate_history, audit_log
   - Returns: `{ client }`
 
-**Punches** (`app/api/clients/[id]/punches/`):
+**Punches** (`app/api/clients/[id]/punches/` and `app/api/punches/[id]/`):
 - `POST /api/clients/[id]/punches` - Record a class
   - Body: `{ date }` (ISO date string)
   - Validates: no future dates, max 3 months back
   - Decrements balance by 1, logs PUNCH_ADD
   - Returns: `{ punch, newBalance, previousBalance }`
+
+- `PATCH /api/punches/[id]` - Update punch date
+  - Body: `{ date }` (ISO date string)
+  - Validates: no future dates, max 3 months back
+  - Balance remains unchanged
+  - Logs PUNCH_EDIT to audit trail
+  - Returns: `{ punch }`
+
+- `DELETE /api/punches/[id]` - Soft delete a punch
+  - Soft delete: sets `is_deleted = true`
+  - Increments balance by 1 (restores the class)
+  - Logs PUNCH_REMOVE to audit trail
+  - Returns: `{ success, newBalance, previousBalance }`
 
 **Payments** (`app/api/clients/[id]/payments/`):
 - `POST /api/clients/[id]/payments` - Log a payment
@@ -350,9 +408,14 @@ See `prd.md` for full product requirements. Key points:
    - GYM-12: Client detail page
 4. Punch tracking ✅ Complete
    - GYM-11: Punch class action with date picker
+   - GYM-8: Remove punch (soft delete with undo)
+   - GYM-9: Edit punch date
 5. Payment logging ✅ Complete
    - GYM-6: Log payment form with auto-calculation
-6. Balance indicators ✅ Complete (integrated into client list/detail)
+   - GYM-4: Payment history view
+6. Balance indicators ✅ Complete
+   - GYM-1: Negative balance alert
+   - Integrated into client list/detail with red/yellow/green indicators
 
 **Out of Scope**:
 - Scheduling/calendar
