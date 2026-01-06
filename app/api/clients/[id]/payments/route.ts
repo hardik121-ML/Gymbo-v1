@@ -44,9 +44,9 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     // Validate classes added
-    if (!classesAdded || typeof classesAdded !== 'number' || classesAdded <= 0) {
+    if (typeof classesAdded !== 'number' || classesAdded < 0) {
       return NextResponse.json(
-        { error: 'Classes added must be a positive number' },
+        { error: 'Classes added must be a non-negative number' },
         { status: 400 }
       )
     }

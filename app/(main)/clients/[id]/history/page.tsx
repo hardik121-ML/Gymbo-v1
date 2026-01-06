@@ -49,21 +49,42 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
     .eq('action', 'PAYMENT_ADD')
     .in('details->>payment_id', paymentIds)
 
-  // Create a map of payment_id to credit_used
+  // Create maps for credit_used and credit_added
   const creditUsedMap = new Map()
+  const creditAddedMap = new Map()
   if (auditData) {
     for (const audit of auditData as any[]) {
-      if (audit.details?.payment_id && audit.details?.credit_used) {
-        creditUsedMap.set(audit.details.payment_id, audit.details.credit_used)
+      if (audit.details?.payment_id) {
+        if (audit.details?.credit_used) {
+          creditUsedMap.set(audit.details.payment_id, audit.details.credit_used)
+        }
+        if (audit.details?.credit_added !== undefined) {
+          creditAddedMap.set(audit.details.payment_id, audit.details.credit_added)
+        }
       }
     }
   }
 
-  // Enrich payments with credit_used info
-  const enrichedPayments = payments.map(p => ({
-    ...p,
-    credit_used: creditUsedMap.get(p.id) || 0
-  }))
+  // Enrich payments with credit info
+  const enrichedPayments = payments.map(p => {
+    // Get credit_used from audit log
+    const creditUsed = creditUsedMap.get(p.id) || 0
+
+    // Get credit_added from audit log, or calculate it from payment data
+    let creditAdded = creditAddedMap.get(p.id)
+    if (creditAdded === undefined) {
+      // For old payments without audit logs, calculate remainder
+      const totalPaid = p.amount + creditUsed
+      const totalCost = p.classes_added * p.rate_at_payment
+      creditAdded = totalPaid - totalCost
+    }
+
+    return {
+      ...p,
+      credit_used: creditUsed,
+      credit_added: creditAdded
+    }
+  })
 
   // Calculate totals
   const totalAmount = payments.reduce((sum, payment) => sum + payment.amount, 0)
@@ -147,7 +168,12 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
                         </div>
                         {payment.credit_used > 0 && (
                           <div className="text-xs text-blue-600 mt-1">
-                            +{formatCurrency(payment.credit_used)} credit
+                            +{formatCurrency(payment.credit_used)} credit used
+                          </div>
+                        )}
+                        {payment.credit_added > 0 && (
+                          <div className="text-xs text-green-600 mt-1">
+                            +{formatCurrency(payment.credit_added)} credit added
                           </div>
                         )}
                       </div>

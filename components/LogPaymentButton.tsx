@@ -91,7 +91,7 @@ export function LogPaymentButton({
   const getCreditRemainder = () => {
     const amountNum = parseFloat(amount)
     const classesNum = parseInt(classesAdded)
-    if (!isNaN(amountNum) && !isNaN(classesNum) && amountNum > 0 && classesNum > 0) {
+    if (!isNaN(amountNum) && !isNaN(classesNum) && amountNum > 0 && classesNum >= 0) {
       const amountInPaise = Math.round(amountNum * 100)
       const creditUsed = getCreditUsed()
       const totalPaid = amountInPaise + creditUsed
@@ -135,8 +135,8 @@ export function LogPaymentButton({
 
     // Validate classes
     const classesNum = parseInt(classesAdded)
-    if (isNaN(classesNum) || classesNum <= 0) {
-      setError('Classes added must be at least 1')
+    if (isNaN(classesNum) || classesNum < 0) {
+      setError('Classes added cannot be negative')
       return
     }
 
@@ -277,7 +277,7 @@ export function LogPaymentButton({
                     }}
                     className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Auto-calculated"
-                    min="1"
+                    min="0"
                     required
                   />
                   <button
@@ -326,7 +326,7 @@ export function LogPaymentButton({
               </div>
 
               {/* Balance Preview */}
-              {classesAdded && (
+              {classesAdded !== '' && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
                   <p className="text-sm font-medium text-blue-900">
                     Payment Summary
@@ -348,7 +348,12 @@ export function LogPaymentButton({
                         ✅ Using ₹{(getCreditUsed() / 100).toFixed(0)} credit to complete this payment
                       </p>
                     )}
-                    {!useCredit && getCreditRemainder() > 0 && (
+                    {classesAdded === '0' && getCreditRemainder() > 0 && (
+                      <p className="text-xs text-blue-600 mt-2">
+                        💰 Full amount of ₹{(getCreditRemainder() / 100).toFixed(0)} will be added as credit
+                      </p>
+                    )}
+                    {classesAdded !== '0' && !useCredit && getCreditRemainder() > 0 && (
                       <p className="text-xs text-blue-600 mt-2">
                         💡 Remainder of ₹{(getCreditRemainder() / 100).toFixed(0)} will be added as credit
                       </p>
@@ -369,7 +374,7 @@ export function LogPaymentButton({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !amount || !classesAdded || !paymentDate}
+                  disabled={isSubmitting || !amount || classesAdded === '' || !paymentDate}
                   className="flex-1 bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Saving...' : 'Save Payment'}
