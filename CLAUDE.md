@@ -284,10 +284,13 @@ From PRD requirements:
 - Route: `/clients/[id]/history`
 - Table view showing all payments in reverse chronological order
 - Columns: Date, Amount (₹), Classes added, Rate at time of payment
-- Shows "+₹X credit" indicator when credit was used in a payment (GYM-26)
-- Fetches credit usage from audit trail logs
+- Shows credit indicators:
+  - "+₹X credit used" (blue) when existing credit was applied to payment
+  - "+₹X credit added" (green) when payment created new credit from remainder
+- Fetches credit data from audit trail logs
+- Backward compatible: calculates credit for old payments without audit logs
 - Summary footer with totals (total amount, total classes)
-- Empty state with friendly message when no payments exist
+- Empty state when no payments exist
 - Read-only view (no edit/delete in MVP)
 
 **Negative Balance Alert** (GYM-1):
