@@ -133,12 +133,12 @@ export default async function ClientDetailPage({ params }: PageProps) {
             currentBalance={client.balance}
             currentRate={client.current_rate}
           />
-          <button
-            disabled
-            className="bg-gray-100 text-gray-400 font-medium py-3 px-4 rounded-lg cursor-not-allowed"
+          <Link
+            href={`/clients/${id}/history`}
+            className="bg-white text-gray-700 font-medium py-3 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors text-center"
           >
             📜 View History
-          </button>
+          </Link>
           <button
             disabled
             className="bg-gray-100 text-gray-400 font-medium py-3 px-4 rounded-lg cursor-not-allowed"
