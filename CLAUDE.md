@@ -75,7 +75,7 @@ Row-Level Security (RLS) blocks unauthenticated database access. During signup/l
 
 Core tables:
 - `trainers` - Trainer accounts (phone, pin_hash)
-- `clients` - Clients belonging to trainers (name, phone, current_rate, balance)
+- `clients` - Clients belonging to trainers (name, phone, current_rate, balance, credit_balance)
 - `punches` - Class records (client_id, punch_date, is_deleted for soft delete)
 - `payments` - Payment records (client_id, amount, classes_added, rate_at_payment)
 - `rate_history` - Historical rate changes (client_id, rate, effective_date)
@@ -85,6 +85,13 @@ Core tables:
 - Balance = (sum of classes from payments) - (count of active punches)
 - Stored denormalized in `clients.balance` for performance
 - Can go negative (trainer extends credit)
+
+**Credit Balance System** (GYM-26):
+- `credit_balance` column tracks monetary credit in paise (separate from class balance)
+- Payment remainders are automatically stored as credit (e.g., ₹10,500 at ₹2,500/class = 4 classes + ₹500 credit)
+- Credit can be explicitly used during payments via "Use Credit Balance" checkbox
+- Credit is automatically used when punching classes (if credit ≥ rate, deduct from credit instead of balance)
+- All credit operations logged to audit trail with detailed breakdown
 
 **RLS Policies**: All tables enforce trainer isolation - trainers can only access their own data via `trainer_id` foreign keys.
 
@@ -203,6 +210,7 @@ From PRD requirements:
 **Client Detail** (`/clients/[id]`):
 - Shows client name, balance (large), rate, balance status text
 - Color-coded balance display (red/yellow/green)
+- **Credit balance badge** (GYM-26) - Blue badge showing "💳 Credit: ₹X" when credit > 0
 - **Negative balance alert** - Red warning banner when balance < 0, shows amount owed and "Log Payment" CTA
 - Recent punches list (last 10, newest first) with edit/delete buttons
 - Empty state for clients with no punches yet
@@ -219,12 +227,14 @@ From PRD requirements:
 
 ### Punch Tracking (GYM-11, GYM-8, GYM-9)
 
-**Punch Class Action** (GYM-11):
+**Punch Class Action** (GYM-11, GYM-26):
 - `PunchClassButton` component - large CTA at bottom of client detail page
 - Date picker modal (defaults to today, allows up to 3 months back, no future dates)
-- Records punch, decrements balance by 1, logs to audit trail
+- **Credit Auto-Usage** (GYM-26): If credit ≥ rate, deducts from credit (balance unchanged)
+  - Otherwise, decrements balance by 1 (credit unchanged)
+  - Logs whether punch was paid with credit or balance in audit trail
 - Success feedback: checkmark animation + haptic vibration (if supported)
-- Auto-refreshes page to show updated balance and punch list
+- Auto-refreshes page to show updated balance/credit and punch list
 - API: `POST /api/clients/[id]/punches`
 - Validates dates: no future, max 3 months old
 - Transaction-safe: rolls back punch if balance update fails
@@ -246,27 +256,36 @@ From PRD requirements:
 - API: `PATCH /api/punches/[id]`
 - Logs PUNCH_EDIT with old and new dates to audit trail
 
-### Payment Management (GYM-6, GYM-4, GYM-1)
+### Payment Management (GYM-6, GYM-4, GYM-1, GYM-26)
 
-**Log Payment Action** (GYM-6):
+**Log Payment Action** (GYM-6, GYM-26):
 - `LogPaymentButton` component - button in action grid on client detail page
 - Modal form with amount, classes, and date fields
 - **Auto-calculation**: Amount ÷ Rate = Classes (Math.floor for rounding down)
 - Shows calculation: "₹8000 ÷ ₹800 = 10 classes"
 - **Manual override**: Click ✎ to edit classes, click again to reset to auto-calculated
-- **Balance preview**: Shows "current + classes = new balance" before saving
+- **Credit Balance Usage** (GYM-26): "Use Credit Balance" checkbox appears when credit > 0
+  - When checked, includes credit in auto-calculation: (Amount + Credit) ÷ Rate = Classes
+  - Shows breakdown: "(₹665 + ₹35 credit) ÷ ₹100 = 7 classes"
+  - Validates credit usage doesn't exceed available credit
+- **Payment Remainders** (GYM-26): Automatically stored as credit
+  - Example: ₹10,500 at ₹2,500/class = 4 classes + ₹500 credit
+  - Credit displayed on client page and in payment history
+- **Balance preview**: Shows "current + classes = new balance" and credit changes
 - Payment date picker (defaults to today)
-- Records payment, increments balance, logs PAYMENT_ADD to audit trail
+- Records payment, increments balance, updates credit, logs PAYMENT_ADD to audit trail
 - API: `POST /api/clients/[id]/payments`
+- Body accepts optional `creditUsed` parameter (in paise)
 - Stores rate_at_payment for historical accuracy
 - Transaction-safe: rolls back payment if balance update fails
-- **Edge case**: When amount doesn't divide evenly (e.g., ₹3500 at ₹3000/class), rounds down to 1 class but records full ₹3500. Trainer can manually override.
 
-**Payment History View** (GYM-4):
+**Payment History View** (GYM-4, GYM-26):
 - Accessible from "View History" button on client detail page
 - Route: `/clients/[id]/history`
 - Table view showing all payments in reverse chronological order
 - Columns: Date, Amount (₹), Classes added, Rate at time of payment
+- Shows "+₹X credit" indicator when credit was used in a payment (GYM-26)
+- Fetches credit usage from audit trail logs
 - Summary footer with totals (total amount, total classes)
 - Empty state with friendly message when no payments exist
 - Read-only view (no edit/delete in MVP)
@@ -283,11 +302,11 @@ From PRD requirements:
 
 **Reusable Components** (`components/`):
 - `BalanceIndicator` - Visual status dot (red/yellow/green) based on balance
-- `ClientCard` - Client list item with name, balance, rate, clickable
+- `ClientCard` - Client list item with name, balance, rate, credit (GYM-26), clickable
 - `ClientList` - Sortable client list with filter controls
-- `PunchClassButton` - Primary action button with date picker modal (decreases balance)
+- `PunchClassButton` - Primary action button with date picker modal (decreases balance or credit)
 - `PunchListItem` - Individual punch row with edit (✎) and delete (✕) buttons
-- `LogPaymentButton` - Payment form button with modal (increases balance)
+- `LogPaymentButton` - Payment form with "Use Credit Balance" checkbox (GYM-26), increases balance
 - `NegativeBalanceAlert` - Red warning banner for negative balances with CTA
 - `ClientDetailActions` - Wrapper that manages alert and payment button interaction
 - `LogoutButton` - Logout with POST request handling
@@ -308,11 +327,13 @@ From PRD requirements:
   - Returns: `{ client }`
 
 **Punches** (`app/api/clients/[id]/punches/` and `app/api/punches/[id]/`):
-- `POST /api/clients/[id]/punches` - Record a class
+- `POST /api/clients/[id]/punches` - Record a class (GYM-26 credit support)
   - Body: `{ date }` (ISO date string)
   - Validates: no future dates, max 3 months back
-  - Decrements balance by 1, logs PUNCH_ADD
-  - Returns: `{ punch, newBalance, previousBalance }`
+  - If credit ≥ rate: deducts from credit_balance, balance unchanged
+  - If credit < rate: decrements balance by 1, credit_balance unchanged
+  - Logs PUNCH_ADD with credit usage details to audit trail
+  - Returns: `{ punch, newBalance, previousBalance, newCredit, previousCredit, paidWithCredit }`
 
 - `PATCH /api/punches/[id]` - Update punch date
   - Body: `{ date }` (ISO date string)
@@ -328,12 +349,16 @@ From PRD requirements:
   - Returns: `{ success, newBalance, previousBalance }`
 
 **Payments** (`app/api/clients/[id]/payments/`):
-- `POST /api/clients/[id]/payments` - Log a payment
-  - Body: `{ amount, classesAdded, date }` (amount in paise)
-  - Validates: amount > 0, classesAdded > 0, valid date
-  - Increments balance by classesAdded, logs PAYMENT_ADD
+- `POST /api/clients/[id]/payments` - Log a payment (GYM-26 credit support)
+  - Body: `{ amount, classesAdded, date, creditUsed? }` (amounts in paise)
+  - Validates: amount > 0, classesAdded > 0, valid date, creditUsed ≤ available credit
+  - Calculates: `totalPaid = amount + creditUsed`
+  - Calculates: `remainder = totalPaid - (classesAdded × rate)`
+  - Updates: `credit_balance = previous - creditUsed + remainder`
+  - Increments balance by classesAdded
+  - Logs PAYMENT_ADD with full credit breakdown to audit trail
   - Stores rate_at_payment for historical tracking
-  - Returns: `{ payment, newBalance, previousBalance }`
+  - Returns: `{ payment, newBalance, previousBalance, newCredit, previousCredit, creditUsed, creditAdded }`
 
 **Note**: All protected endpoints check session via `getSession()` and return 401 if not authenticated. Punch and payment endpoints are transaction-safe - they rollback on failure.
 
