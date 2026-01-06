@@ -1,7 +1,7 @@
 // ============================================================================
-// Punch Delete API Route
+// Punch API Routes
 // ============================================================================
-// Handles soft deletion of individual punch records
+// Handles punch operations: edit date and soft deletion
 // ============================================================================
 
 import { NextResponse } from 'next/server'
@@ -10,6 +10,152 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 interface RouteContext {
   params: Promise<{ id: string }>
+}
+
+// PATCH /api/punches/[id] - Update punch date
+export async function PATCH(request: Request, context: RouteContext) {
+  try {
+    const { id: punchId } = await context.params
+
+    // Check authentication
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Parse request body
+    const body = await request.json()
+    const { date } = body
+
+    // Validate date
+    if (!date || typeof date !== 'string') {
+      return NextResponse.json(
+        { error: 'Date is required' },
+        { status: 400 }
+      )
+    }
+
+    // Parse and validate date
+    const newPunchDate = new Date(date)
+    if (isNaN(newPunchDate.getTime())) {
+      return NextResponse.json(
+        { error: 'Invalid date format' },
+        { status: 400 }
+      )
+    }
+
+    // Check date is not in future
+    const today = new Date()
+    today.setHours(23, 59, 59, 999)
+    if (newPunchDate > today) {
+      return NextResponse.json(
+        { error: 'Cannot set future dates' },
+        { status: 400 }
+      )
+    }
+
+    // Check date is not more than 3 months old
+    const threeMonthsAgo = new Date()
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+    threeMonthsAgo.setHours(0, 0, 0, 0)
+    if (newPunchDate < threeMonthsAgo) {
+      return NextResponse.json(
+        { error: 'Cannot set dates older than 3 months' },
+        { status: 400 }
+      )
+    }
+
+    const supabase = createAdminClient()
+
+    // Fetch the punch to verify it exists and belongs to trainer's client
+    const { data: punchData, error: punchError } = await supabase
+      .from('punches')
+      .select('id, client_id, punch_date, is_deleted')
+      .eq('id', punchId)
+      .single()
+
+    if (punchError || !punchData) {
+      return NextResponse.json(
+        { error: 'Punch not found' },
+        { status: 404 }
+      )
+    }
+
+    const punch = punchData as any
+
+    // Check if deleted
+    if (punch.is_deleted) {
+      return NextResponse.json(
+        { error: 'Cannot edit deleted punch' },
+        { status: 400 }
+      )
+    }
+
+    // Verify the client belongs to the trainer
+    const { data: clientData, error: clientError } = await supabase
+      .from('clients')
+      .select('id, trainer_id')
+      .eq('id', punch.client_id)
+      .eq('trainer_id', session.trainerId)
+      .single()
+
+    if (clientError || !clientData) {
+      return NextResponse.json(
+        { error: 'Client not found or unauthorized' },
+        { status: 404 }
+      )
+    }
+
+    const oldDate = punch.punch_date
+
+    // Update punch date
+    const punchUpdateResult: any = await (supabase.from('punches') as any)
+      .update({
+        punch_date: date,
+      })
+      .eq('id', punchId)
+      .select()
+      .single()
+
+    const { data: updatedPunch, error: updateError } = punchUpdateResult
+
+    if (updateError) {
+      console.error('Error updating punch:', updateError)
+      return NextResponse.json(
+        { error: 'Failed to update punch' },
+        { status: 500 }
+      )
+    }
+
+    // Log to audit trail
+    const { error: auditError } = await supabase
+      .from('audit_log')
+      .insert({
+        trainer_id: session.trainerId,
+        client_id: punch.client_id,
+        action: 'PUNCH_EDIT',
+        details: {
+          punch_id: punchId,
+          old_date: oldDate,
+          new_date: date,
+        },
+      } as any)
+
+    if (auditError) {
+      console.error('Error creating audit log:', auditError)
+      // Don't fail the whole request, just log it
+    }
+
+    return NextResponse.json({
+      punch: updatedPunch,
+    })
+  } catch (error) {
+    console.error('Unexpected error in PATCH /api/punches/[id]:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
 }
 
 // DELETE /api/punches/[id] - Soft delete a punch record

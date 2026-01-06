@@ -15,6 +15,9 @@ export function PunchListItem({ id, punchDate }: PunchListItemProps) {
   const [showUndo, setShowUndo] = useState(false)
   const [countdown, setCountdown] = useState(5)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editDate, setEditDate] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -105,6 +108,58 @@ export function PunchListItem({ id, punchDate }: PunchListItemProps) {
     }
   }
 
+  const handleEditClick = () => {
+    // Set the current date as default
+    setEditDate(punchDate)
+    setShowEditModal(true)
+  }
+
+  const handleEditSave = async () => {
+    if (!editDate) return
+
+    setIsEditing(true)
+
+    try {
+      const response = await fetch(`/api/punches/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ date: editDate }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to update punch')
+      }
+
+      // Success
+      triggerHaptic()
+      setShowEditModal(false)
+      setIsEditing(false)
+
+      // Refresh to show updated date
+      router.refresh()
+    } catch (error) {
+      console.error('Error updating punch:', error)
+      alert(error instanceof Error ? error.message : 'Failed to update punch')
+      setIsEditing(false)
+    }
+  }
+
+  const getMaxDate = () => {
+    // Today
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  }
+
+  const getMinDate = () => {
+    // 3 months ago
+    const threeMonthsAgo = new Date()
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+    return threeMonthsAgo.toISOString().split('T')[0]
+  }
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -137,13 +192,22 @@ export function PunchListItem({ id, punchDate }: PunchListItemProps) {
           <span className="text-gray-500 text-sm ml-3">{formatWeekday(punchDate)}</span>
         </div>
         {!isStrikethrough && (
-          <button
-            onClick={() => setShowConfirm(true)}
-            className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-2 transition-colors"
-            aria-label="Delete punch"
-          >
-            ✕
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleEditClick}
+              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded p-2 transition-colors"
+              aria-label="Edit punch date"
+            >
+              ✎
+            </button>
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-2 transition-colors"
+              aria-label="Delete punch"
+            >
+              ✕
+            </button>
+          </div>
         )}
       </div>
 
@@ -169,6 +233,53 @@ export function PunchListItem({ id, punchDate }: PunchListItemProps) {
                 className="flex-1 bg-red-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
               >
                 Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Date Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-sm w-full p-6 animate-[scale-in_0.2s_ease-out]">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Edit Punch Date
+            </h3>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date
+              </label>
+              <input
+                type="date"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                min={getMinDate()}
+                max={getMaxDate()}
+                disabled={isEditing}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Must be within last 3 months
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowEditModal(false)
+                  setEditDate('')
+                }}
+                disabled={isEditing}
+                className="flex-1 bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSave}
+                disabled={isEditing || !editDate}
+                className="flex-1 bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {isEditing ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>
