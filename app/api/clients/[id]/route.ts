@@ -109,10 +109,12 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
-    const client = existingClient as any
-
     // Build update object
-    const updates: any = {
+    const updates: {
+      updated_at: string
+      name?: string
+      phone?: string | null
+    } = {
       updated_at: new Date().toISOString()
     }
 
@@ -125,14 +127,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     // Update client
-    const updateResult: any = await (supabase.from('clients') as any)
+    const { data: updatedClient, error: updateError } = await supabase
+      .from('clients')
       .update(updates)
       .eq('id', clientId)
       .select()
+      .single()
 
-    const { data: updatedClient, error: updateError } = updateResult
-
-    if (updateError) {
+    if (updateError || !updatedClient) {
       console.error('Error updating client:', updateError)
       return NextResponse.json(
         { error: 'Failed to update client' },
@@ -149,17 +151,17 @@ export async function PATCH(request: Request, context: RouteContext) {
         action: 'CLIENT_UPDATE',
         details: {
           previous: {
-            name: client.name,
-            phone: client.phone
+            name: existingClient.name,
+            phone: existingClient.phone
           },
           updated: {
-            name: updates.name || client.name,
-            phone: updates.phone !== undefined ? updates.phone : client.phone
+            name: updates.name || existingClient.name,
+            phone: updates.phone !== undefined ? updates.phone : existingClient.phone
           }
         },
         previous_balance: null,
         new_balance: null,
-      } as any)
+      })
 
     if (auditError) {
       console.error('Error creating audit log:', auditError)

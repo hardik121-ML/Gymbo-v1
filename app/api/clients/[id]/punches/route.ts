@@ -70,7 +70,7 @@ export async function GET(request: Request, context: RouteContext) {
       )
     }
 
-    const punches = (punchesData as any[]) || []
+    const punches = punchesData || []
 
     // Get total count for pagination metadata
     const { count, error: countError } = await supabase
@@ -85,7 +85,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     // Fetch audit logs to check which punches were paid with credit
     const punchIds = punches.map(p => p.id)
-    let punchAuditData: any[] = []
+    let punchAuditData: Array<{ details: unknown }> = []
 
     // Only query audit logs if there are punches
     if (punchIds.length > 0) {
@@ -99,10 +99,14 @@ export async function GET(request: Request, context: RouteContext) {
     }
 
     // Create map of punch_id to paid_with_credit
-    const paidWithCreditMap = new Map()
-    for (const audit of punchAuditData as any[]) {
-      if (audit.details?.punch_id && audit.details?.paid_with_credit) {
-        paidWithCreditMap.set(audit.details.punch_id, true)
+    const paidWithCreditMap = new Map<string, boolean>()
+    for (const audit of punchAuditData) {
+      const details = audit.details as Record<string, unknown>
+      const punchId = details?.punch_id
+      const paidWithCredit = details?.paid_with_credit
+
+      if (typeof punchId === 'string' && paidWithCredit === true) {
+        paidWithCreditMap.set(punchId, true)
       }
     }
 
@@ -200,10 +204,9 @@ export async function POST(request: Request, context: RouteContext) {
       )
     }
 
-    const client = clientData as any
-    const previousBalance = client.balance
-    const previousCredit = client.credit_balance || 0
-    const currentRate = client.current_rate
+    const previousBalance = clientData.balance
+    const previousCredit = clientData.credit_balance || 0
+    const currentRate = clientData.current_rate
 
     // Create punch record
     const { data: punchData, error: punchError } = await supabase
@@ -212,19 +215,17 @@ export async function POST(request: Request, context: RouteContext) {
         client_id: clientId,
         punch_date: date,
         is_deleted: false,
-      } as any)
+      })
       .select()
       .single()
 
-    if (punchError) {
+    if (punchError || !punchData) {
       console.error('Error creating punch:', punchError)
       return NextResponse.json(
         { error: 'Failed to record class' },
         { status: 500 }
       )
     }
-
-    const punch = punchData as any
 
     // Check if we can pay with credit, otherwise use balance
     let newBalance = previousBalance
@@ -240,7 +241,8 @@ export async function POST(request: Request, context: RouteContext) {
       newBalance = previousBalance - 1
     }
 
-    const updateResult: any = await (supabase.from('clients') as any)
+    const { error: balanceError } = await supabase
+      .from('clients')
       .update({
         balance: newBalance,
         credit_balance: newCredit,
@@ -248,15 +250,13 @@ export async function POST(request: Request, context: RouteContext) {
       })
       .eq('id', clientId)
 
-    const { error: balanceError } = updateResult
-
     if (balanceError) {
       console.error('Error updating balance:', balanceError)
       // Try to delete the punch to maintain consistency
       await supabase
         .from('punches')
         .delete()
-        .eq('id', punch.id)
+        .eq('id', punchData.id)
 
       return NextResponse.json(
         { error: 'Failed to update balance' },
@@ -273,7 +273,7 @@ export async function POST(request: Request, context: RouteContext) {
         action: 'PUNCH_ADD',
         details: {
           punch_date: date,
-          punch_id: punch.id,
+          punch_id: punchData.id,
           paid_with_credit: paidWithCredit,
           credit_used: paidWithCredit ? currentRate : 0,
           previous_credit: previousCredit,
@@ -281,7 +281,7 @@ export async function POST(request: Request, context: RouteContext) {
         },
         previous_balance: previousBalance,
         new_balance: newBalance,
-      } as any)
+      })
 
     if (auditError) {
       console.error('Error creating audit log:', auditError)
@@ -289,7 +289,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     return NextResponse.json({
-      punch,
+      punch: punchData,
       newBalance,
       previousBalance,
       newCredit,

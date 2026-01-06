@@ -33,7 +33,7 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
     redirect('/clients')
   }
 
-  const client = clientData as any
+  const client = clientData
 
   // Fetch all payments for this client
   const { data: paymentsData } = await supabase
@@ -42,7 +42,7 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
     .eq('client_id', id)
     .order('payment_date', { ascending: false })
 
-  const payments = (paymentsData as any[]) || []
+  const payments = paymentsData || []
 
   // Fetch audit logs for these payments to get credit usage info
   const paymentIds = payments.map(p => p.id)
@@ -53,16 +53,17 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
     .in('details->>payment_id', paymentIds)
 
   // Create maps for credit_used and credit_added
-  const creditUsedMap = new Map()
-  const creditAddedMap = new Map()
+  const creditUsedMap = new Map<string, number>()
+  const creditAddedMap = new Map<string, number>()
   if (auditData) {
-    for (const audit of auditData as any[]) {
-      if (audit.details?.payment_id) {
-        if (audit.details?.credit_used) {
-          creditUsedMap.set(audit.details.payment_id, audit.details.credit_used)
+    for (const audit of auditData) {
+      const details = audit.details as Record<string, unknown>
+      if (details?.payment_id && typeof details.payment_id === 'string') {
+        if (details?.credit_used && typeof details.credit_used === 'number') {
+          creditUsedMap.set(details.payment_id, details.credit_used)
         }
-        if (audit.details?.credit_added !== undefined) {
-          creditAddedMap.set(audit.details.payment_id, audit.details.credit_added)
+        if (details?.credit_added !== undefined && typeof details.credit_added === 'number') {
+          creditAddedMap.set(details.payment_id, details.credit_added)
         }
       }
     }

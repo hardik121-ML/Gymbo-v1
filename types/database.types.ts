@@ -1,12 +1,3 @@
-// ============================================================================
-// Database Types - Auto-generated from Supabase Schema
-// ============================================================================
-// This file will be auto-generated once you set up your Supabase project.
-// Run: npx supabase gen types typescript --project-id <your-project-id> > types/database.types.ts
-//
-// For now, this is a placeholder with manual types based on our schema.
-// ============================================================================
-
 export type Json =
   | string
   | number
@@ -15,17 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type AuditAction =
-  | 'PUNCH_ADD'
-  | 'PUNCH_REMOVE'
-  | 'PUNCH_EDIT'
-  | 'PAYMENT_ADD'
-  | 'RATE_CHANGE'
-  | 'CLIENT_ADD'
-  | 'CLIENT_UPDATE'
-  | 'CLIENT_DELETE'
-
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       trainers: {
@@ -50,6 +31,7 @@ export interface Database {
           name?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       clients: {
         Row: {
@@ -59,6 +41,7 @@ export interface Database {
           phone: string | null
           current_rate: number
           balance: number
+          credit_balance: number
           created_at: string
           updated_at: string
         }
@@ -69,6 +52,7 @@ export interface Database {
           phone?: string | null
           current_rate: number
           balance?: number
+          credit_balance?: number
           created_at?: string
           updated_at?: string
         }
@@ -79,9 +63,19 @@ export interface Database {
           phone?: string | null
           current_rate?: number
           balance?: number
+          credit_balance?: number
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "clients_trainer_id_fkey"
+            columns: ["trainer_id"]
+            isOneToOne: false
+            referencedRelation: "trainers"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       punches: {
         Row: {
@@ -105,6 +99,15 @@ export interface Database {
           created_at?: string
           is_deleted?: boolean
         }
+        Relationships: [
+          {
+            foreignKeyName: "punches_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       payments: {
         Row: {
@@ -134,6 +137,15 @@ export interface Database {
           payment_date?: string
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "payments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       rate_history: {
         Row: {
@@ -157,13 +169,22 @@ export interface Database {
           effective_date?: string
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "rate_history_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       audit_log: {
         Row: {
           id: string
           client_id: string | null
           trainer_id: string
-          action: AuditAction
+          action: Database["public"]["Enums"]["audit_action"]
           details: Json | null
           previous_balance: number | null
           new_balance: number | null
@@ -173,7 +194,7 @@ export interface Database {
           id?: string
           client_id?: string | null
           trainer_id: string
-          action: AuditAction
+          action: Database["public"]["Enums"]["audit_action"]
           details?: Json | null
           previous_balance?: number | null
           new_balance?: number | null
@@ -183,12 +204,28 @@ export interface Database {
           id?: string
           client_id?: string | null
           trainer_id?: string
-          action?: AuditAction
+          action?: Database["public"]["Enums"]["audit_action"]
           details?: Json | null
           previous_balance?: number | null
           new_balance?: number | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_log_trainer_id_fkey"
+            columns: ["trainer_id"]
+            isOneToOne: false
+            referencedRelation: "trainers"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {
@@ -198,7 +235,100 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      audit_action: AuditAction
+      audit_action:
+        | "PUNCH_ADD"
+        | "PUNCH_REMOVE"
+        | "PUNCH_EDIT"
+        | "PAYMENT_ADD"
+        | "RATE_CHANGE"
+        | "CLIENT_ADD"
+        | "CLIENT_UPDATE"
+        | "CLIENT_DELETE"
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }
+
+type PublicSchema = Database[Extract<keyof Database, "public">]
+
+export type Tables<
+  PublicTableNameOrOptions extends
+    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])
+    : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
+      PublicSchema["Views"])
+  ? (PublicSchema["Tables"] &
+      PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : never
+
+export type TablesInsert<
+  PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+  ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : never
+
+export type TablesUpdate<
+  PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+  ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : never
+
+export type Enums<
+  PublicEnumNameOrOptions extends
+    | keyof PublicSchema["Enums"]
+    | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+    : never = never
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
+  ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+  : never

@@ -53,8 +53,8 @@ export async function POST(request: Request) {
     const pinHash = await bcrypt.hash(pin, 10)
 
     // Create trainer record (admin client bypasses RLS)
-    const { data: trainer, error: createError } = await (adminSupabase
-      .from('trainers') as any)
+    const { data: trainer, error: createError } = await adminSupabase
+      .from('trainers')
       .insert([
         {
           phone,
@@ -72,21 +72,25 @@ export async function POST(request: Request) {
       )
     }
 
-    // Type assertion for trainer data
-    const trainerData = trainer as any
+    if (!trainer) {
+      return NextResponse.json(
+        { error: 'Failed to create account' },
+        { status: 500 }
+      )
+    }
 
     // Create session with custom JWT
     await createSession({
-      trainerId: trainerData.id,
-      phone: trainerData.phone,
+      trainerId: trainer.id,
+      phone: trainer.phone,
     })
 
     return NextResponse.json({
       success: true,
       message: 'Account created successfully',
       trainer: {
-        id: trainerData.id,
-        phone: trainerData.phone,
+        id: trainer.id,
+        phone: trainer.phone,
       },
     })
   } catch (error) {

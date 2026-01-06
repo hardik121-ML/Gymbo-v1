@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     const rateInPaise = rate * 100
 
     // Create client
-    const { data, error: clientError } = await supabase
+    const { data: client, error: clientError } = await supabase
       .from('clients')
       .insert({
         trainer_id: session.trainerId,
@@ -61,13 +61,11 @@ export async function POST(request: Request) {
         phone: phone?.trim() || null,
         current_rate: rateInPaise,
         balance: 0, // New clients start with 0 balance
-      } as any)
+      })
       .select()
       .single()
 
-    const client = data as any
-
-    if (clientError) {
+    if (clientError || !client) {
       console.error('Error creating client:', clientError)
       return NextResponse.json(
         { error: 'Failed to create client' },
@@ -82,7 +80,7 @@ export async function POST(request: Request) {
         client_id: client.id,
         rate: rateInPaise,
         effective_date: new Date().toISOString().split('T')[0],
-      } as any)
+      })
 
     if (rateHistoryError) {
       console.error('Error creating rate history:', rateHistoryError)
@@ -103,7 +101,7 @@ export async function POST(request: Request) {
         },
         previous_balance: null,
         new_balance: 0,
-      } as any)
+      })
 
     if (auditError) {
       console.error('Error creating audit log:', auditError)

@@ -38,8 +38,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
     redirect('/clients')
   }
 
-  // Type assertion workaround for Supabase types
-  const client = data as any
+  const client = data
 
   // Fetch initial punches (first 20 for initial load)
   const initialLimit = 20
@@ -51,7 +50,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
     .order('punch_date', { ascending: false })
     .limit(initialLimit)
 
-  const punches = (punchesData as any[]) || []
+  const punches = punchesData || []
 
   // Get total count for pagination
   const { count: totalPunches } = await supabase
@@ -62,7 +61,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
 
   // Fetch audit logs to check which punches were paid with credit
   const punchIds = punches.map(p => p.id)
-  let punchAuditData: any[] = []
+  let punchAuditData: Array<{ details: unknown }> = []
 
   // Only query audit logs if there are punches
   if (punchIds.length > 0) {
@@ -76,10 +75,11 @@ export default async function ClientDetailPage({ params }: PageProps) {
   }
 
   // Create map of punch_id to paid_with_credit
-  const paidWithCreditMap = new Map()
-  for (const audit of punchAuditData as any[]) {
-    if (audit.details?.punch_id && audit.details?.paid_with_credit) {
-      paidWithCreditMap.set(audit.details.punch_id, true)
+  const paidWithCreditMap = new Map<string, boolean>()
+  for (const audit of punchAuditData) {
+    const details = audit.details as Record<string, unknown>
+    if (details?.punch_id && details?.paid_with_credit) {
+      paidWithCreditMap.set(details.punch_id as string, true)
     }
   }
 
@@ -98,22 +98,23 @@ export default async function ClientDetailPage({ params }: PageProps) {
     .order('created_at', { ascending: false })
     .limit(5)
 
-  const creditActivity = (creditActivityData as any[]) || []
+  const creditActivity = creditActivityData || []
 
   // Filter and format credit activity
   const formattedCreditActivity = creditActivity
-    .map((activity: any) => {
-      if (activity.action === 'PAYMENT_ADD' && activity.details?.credit_added > 0) {
+    .map((activity) => {
+      const details = activity.details as Record<string, unknown>
+      if (activity.action === 'PAYMENT_ADD' && details?.credit_added && typeof details.credit_added === 'number' && details.credit_added > 0) {
         return {
-          type: 'added',
-          amount: activity.details.credit_added,
+          type: 'added' as const,
+          amount: details.credit_added,
           date: activity.created_at,
           description: 'from payment'
         }
       }
-      if (activity.action === 'PUNCH_ADD' && activity.details?.paid_with_credit) {
+      if (activity.action === 'PUNCH_ADD' && details?.paid_with_credit) {
         return {
-          type: 'used',
+          type: 'used' as const,
           amount: client.current_rate, // Rate used for punch
           date: activity.created_at,
           description: 'for class'

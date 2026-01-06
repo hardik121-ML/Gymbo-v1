@@ -81,10 +81,8 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
-    const punch = punchData as any
-
     // Check if deleted
-    if (punch.is_deleted) {
+    if (punchData.is_deleted) {
       return NextResponse.json(
         { error: 'Cannot edit deleted punch' },
         { status: 400 }
@@ -95,7 +93,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
       .select('id, trainer_id')
-      .eq('id', punch.client_id)
+      .eq('id', punchData.client_id)
       .eq('trainer_id', session.trainerId)
       .single()
 
@@ -106,10 +104,11 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
-    const oldDate = punch.punch_date
+    const oldDate = punchData.punch_date
 
     // Update punch date
-    const punchUpdateResult: any = await (supabase.from('punches') as any)
+    const { data: updatedPunch, error: updateError } = await supabase
+      .from('punches')
       .update({
         punch_date: date,
       })
@@ -117,9 +116,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       .select()
       .single()
 
-    const { data: updatedPunch, error: updateError } = punchUpdateResult
-
-    if (updateError) {
+    if (updateError || !updatedPunch) {
       console.error('Error updating punch:', updateError)
       return NextResponse.json(
         { error: 'Failed to update punch' },
@@ -132,14 +129,14 @@ export async function PATCH(request: Request, context: RouteContext) {
       .from('audit_log')
       .insert({
         trainer_id: session.trainerId,
-        client_id: punch.client_id,
+        client_id: punchData.client_id,
         action: 'PUNCH_EDIT',
         details: {
           punch_id: punchId,
           old_date: oldDate,
           new_date: date,
         },
-      } as any)
+      })
 
     if (auditError) {
       console.error('Error creating audit log:', auditError)
@@ -185,10 +182,8 @@ export async function DELETE(request: Request, context: RouteContext) {
       )
     }
 
-    const punch = punchData as any
-
     // Check if already deleted
-    if (punch.is_deleted) {
+    if (punchData.is_deleted) {
       return NextResponse.json(
         { error: 'Punch already deleted' },
         { status: 400 }
@@ -199,7 +194,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
       .select('id, balance, trainer_id')
-      .eq('id', punch.client_id)
+      .eq('id', punchData.client_id)
       .eq('trainer_id', session.trainerId)
       .single()
 
@@ -210,15 +205,13 @@ export async function DELETE(request: Request, context: RouteContext) {
       )
     }
 
-    const client = clientData as any
-    const previousBalance = client.balance
+    const previousBalance = clientData.balance
 
     // Soft delete the punch (set is_deleted = true)
-    const punchUpdateResult: any = await (supabase.from('punches') as any)
+    const { error: deleteError } = await supabase
+      .from('punches')
       .update({ is_deleted: true })
       .eq('id', punchId)
-
-    const { error: deleteError } = punchUpdateResult
 
     if (deleteError) {
       console.error('Error soft deleting punch:', deleteError)
@@ -230,19 +223,19 @@ export async function DELETE(request: Request, context: RouteContext) {
 
     // Increment client balance by 1 (restore the class)
     const newBalance = previousBalance + 1
-    const updateResult: any = await (supabase.from('clients') as any)
+    const { error: balanceError } = await supabase
+      .from('clients')
       .update({
         balance: newBalance,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', punch.client_id)
-
-    const { error: balanceError } = updateResult
+      .eq('id', punchData.client_id)
 
     if (balanceError) {
       console.error('Error updating balance:', balanceError)
       // Try to restore the punch to maintain consistency
-      await (supabase.from('punches') as any)
+      await supabase
+        .from('punches')
         .update({ is_deleted: false })
         .eq('id', punchId)
 
@@ -257,15 +250,15 @@ export async function DELETE(request: Request, context: RouteContext) {
       .from('audit_log')
       .insert({
         trainer_id: session.trainerId,
-        client_id: punch.client_id,
+        client_id: punchData.client_id,
         action: 'PUNCH_REMOVE',
         details: {
-          punch_date: punch.punch_date,
+          punch_date: punchData.punch_date,
           punch_id: punchId,
         },
         previous_balance: previousBalance,
         new_balance: newBalance,
-      } as any)
+      })
 
     if (auditError) {
       console.error('Error creating audit log:', auditError)

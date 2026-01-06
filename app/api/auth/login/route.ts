@@ -49,11 +49,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // Type assertion for trainer data
-    const trainerData = trainer as any
-
     // Verify PIN
-    const isPinValid = await bcrypt.compare(pin, trainerData.pin_hash)
+    const isPinValid = await bcrypt.compare(pin, trainer.pin_hash)
 
     if (!isPinValid) {
       return NextResponse.json(
@@ -64,17 +61,17 @@ export async function POST(request: Request) {
 
     // Create session with custom JWT
     await createSession({
-      trainerId: trainerData.id,
-      phone: trainerData.phone,
+      trainerId: trainer.id,
+      phone: trainer.phone,
     })
 
     return NextResponse.json({
       success: true,
       message: 'Logged in successfully',
       trainer: {
-        id: trainerData.id,
-        phone: trainerData.phone,
-        name: trainerData.name,
+        id: trainer.id,
+        phone: trainer.phone,
+        name: trainer.name,
       },
     })
   } catch (error) {

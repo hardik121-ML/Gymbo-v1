@@ -69,8 +69,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
-    const client = existingClient as any
-    const oldRate = client.current_rate
+    const oldRate = existingClient.current_rate
 
     // Convert rate from rupees to paise
     const rateInPaise = rate * 100
@@ -84,17 +83,17 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     // Update client's current rate
-    const updateResult: any = await (supabase.from('clients') as any)
+    const { data: updatedClient, error: updateError } = await supabase
+      .from('clients')
       .update({
         current_rate: rateInPaise,
         updated_at: new Date().toISOString()
       })
       .eq('id', clientId)
       .select()
+      .single()
 
-    const { data: updatedClient, error: updateError } = updateResult
-
-    if (updateError) {
+    if (updateError || !updatedClient) {
       console.error('Error updating client rate:', updateError)
       return NextResponse.json(
         { error: 'Failed to update rate' },
@@ -109,14 +108,15 @@ export async function PATCH(request: Request, context: RouteContext) {
         client_id: clientId,
         rate: rateInPaise,
         effective_date: effectiveDate,
-      } as any)
+      })
       .select()
       .single()
 
     if (historyError) {
       console.error('Error creating rate history:', historyError)
       // Try to rollback the client update
-      await (supabase.from('clients') as any)
+      await supabase
+        .from('clients')
         .update({ current_rate: oldRate })
         .eq('id', clientId)
 

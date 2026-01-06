@@ -85,10 +85,9 @@ export async function POST(request: Request, context: RouteContext) {
       )
     }
 
-    const client = clientData as any
-    const previousBalance = client.balance
-    const previousCredit = client.credit_balance || 0
-    const rateAtPayment = client.current_rate
+    const previousBalance = clientData.balance
+    const previousCredit = clientData.credit_balance || 0
+    const rateAtPayment = clientData.current_rate
 
     // Validate that creditUsed doesn't exceed available credit
     if (creditUsed > previousCredit) {
@@ -115,11 +114,11 @@ export async function POST(request: Request, context: RouteContext) {
         classes_added: classesAdded,
         rate_at_payment: rateAtPayment,
         payment_date: date,
-      } as any)
+      })
       .select()
       .single()
 
-    if (paymentError) {
+    if (paymentError || !paymentData) {
       console.error('Error creating payment:', paymentError)
       return NextResponse.json(
         { error: 'Failed to record payment' },
@@ -127,11 +126,10 @@ export async function POST(request: Request, context: RouteContext) {
       )
     }
 
-    const payment = paymentData as any
-
     // Increment client balance and credit
     const newBalance = previousBalance + classesAdded
-    const updateResult: any = await (supabase.from('clients') as any)
+    const { error: balanceError } = await supabase
+      .from('clients')
       .update({
         balance: newBalance,
         credit_balance: newCredit,
@@ -139,15 +137,13 @@ export async function POST(request: Request, context: RouteContext) {
       })
       .eq('id', clientId)
 
-    const { error: balanceError } = updateResult
-
     if (balanceError) {
       console.error('Error updating balance:', balanceError)
       // Try to delete the payment to maintain consistency
       await supabase
         .from('payments')
         .delete()
-        .eq('id', payment.id)
+        .eq('id', paymentData.id)
 
       return NextResponse.json(
         { error: 'Failed to update balance' },
@@ -167,7 +163,7 @@ export async function POST(request: Request, context: RouteContext) {
           classes_added: classesAdded,
           rate_at_payment: rateAtPayment,
           payment_date: date,
-          payment_id: payment.id,
+          payment_id: paymentData.id,
           credit_used: creditUsed,
           credit_added: remainder,
           previous_credit: previousCredit,
@@ -175,7 +171,7 @@ export async function POST(request: Request, context: RouteContext) {
         },
         previous_balance: previousBalance,
         new_balance: newBalance,
-      } as any)
+      })
 
     if (auditError) {
       console.error('Error creating audit log:', auditError)
@@ -183,7 +179,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     return NextResponse.json({
-      payment,
+      payment: paymentData,
       newBalance,
       previousBalance,
       newCredit,

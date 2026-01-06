@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -124,6 +125,9 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Record Class for {clientName}</DialogTitle>
+            <DialogDescription>
+              Select the date when the class took place. You can record classes up to 3 months back.
+            </DialogDescription>
           </DialogHeader>
 
           {/* Error Message */}
