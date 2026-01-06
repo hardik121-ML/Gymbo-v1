@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation'
 interface PunchListItemProps {
   id: string
   punchDate: string
+  paidWithCredit?: boolean
 }
 
-export function PunchListItem({ id, punchDate }: PunchListItemProps) {
+export function PunchListItem({ id, punchDate, paidWithCredit = false }: PunchListItemProps) {
   const router = useRouter()
   const [showConfirm, setShowConfirm] = useState(false)
   const [isStrikethrough, setIsStrikethrough] = useState(false)
@@ -190,6 +191,11 @@ export function PunchListItem({ id, punchDate }: PunchListItemProps) {
         <div className="flex-1">
           <span className="text-gray-700">{formatDate(punchDate)}</span>
           <span className="text-gray-500 text-sm ml-3">{formatWeekday(punchDate)}</span>
+          {paidWithCredit && (
+            <span className="text-blue-600 text-xs ml-3 font-medium">
+              💳 Paid from credit
+            </span>
+          )}
         </div>
         {!isStrikethrough && (
           <div className="flex gap-2">
