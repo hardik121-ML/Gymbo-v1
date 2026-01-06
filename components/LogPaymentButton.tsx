@@ -156,6 +156,7 @@ export function LogPaymentButton({
       {/* Payment Button */}
       <button
         onClick={handleOpenModal}
+        data-log-payment-button
         className="bg-white text-gray-700 border border-gray-300 font-medium py-3 px-4 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
       >
         💰 Log Payment

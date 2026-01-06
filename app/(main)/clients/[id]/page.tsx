@@ -4,8 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { BalanceIndicator } from '@/components/BalanceIndicator'
 import { PunchClassButton } from '@/components/PunchClassButton'
-import { LogPaymentButton } from '@/components/LogPaymentButton'
 import { PunchListItem } from '@/components/PunchListItem'
+import { ClientDetailActions } from '@/components/ClientDetailActions'
+import { LogPaymentButton } from '@/components/LogPaymentButton'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -101,6 +102,13 @@ export default async function ClientDetailPage({ params }: PageProps) {
             Rate: ₹{(client.current_rate / 100).toFixed(0)} per class
           </p>
         </div>
+
+        {/* Negative Balance Alert */}
+        <ClientDetailActions
+          clientId={client.id}
+          balance={client.balance}
+          rate={client.current_rate}
+        />
 
         {/* Recent Punches */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
