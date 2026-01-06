@@ -9,6 +9,7 @@ type BalanceStatus = 'negative' | 'low' | 'healthy'
 interface BalanceIndicatorProps {
   balance: number
   size?: 'sm' | 'md' | 'lg'
+  showLabel?: boolean
 }
 
 function getBalanceStatus(balance: number): BalanceStatus {
@@ -39,7 +40,7 @@ function getBalanceLabel(status: BalanceStatus): string {
   }
 }
 
-export function BalanceIndicator({ balance, size = 'md' }: BalanceIndicatorProps) {
+export function BalanceIndicator({ balance, size = 'md', showLabel = false }: BalanceIndicatorProps) {
   const status = getBalanceStatus(balance)
   const colorClass = getBalanceColor(status)
   const label = getBalanceLabel(status)
@@ -50,6 +51,12 @@ export function BalanceIndicator({ balance, size = 'md' }: BalanceIndicatorProps
     lg: 'w-4 h-4'
   }
 
+  const textSizeClasses = {
+    sm: 'text-xs',
+    md: 'text-sm',
+    lg: 'text-base'
+  }
+
   return (
     <div className="flex items-center gap-2">
       <div
@@ -57,6 +64,11 @@ export function BalanceIndicator({ balance, size = 'md' }: BalanceIndicatorProps
         aria-label={label}
         title={label}
       />
+      {showLabel && (
+        <span className={`${textSizeClasses[size]} font-medium text-gray-700`}>
+          {label}
+        </span>
+      )}
     </div>
   )
 }

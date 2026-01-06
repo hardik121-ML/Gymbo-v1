@@ -87,7 +87,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
         {/* Balance Card */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6 text-center">
           <div className="flex items-center justify-center gap-3 mb-2">
-            <BalanceIndicator balance={client.balance} size="lg" />
+            <BalanceIndicator balance={client.balance} size="lg" showLabel={true} />
             <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
               Balance
             </p>

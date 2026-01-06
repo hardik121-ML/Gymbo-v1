@@ -31,9 +31,20 @@ npm run lint         # Run ESLint (configured via eslint.config.mjs)
 
 # Database
 npx supabase gen types typescript --project-id <project-id> > types/database.types.ts
+
+# Testing
+# Note: No test suite currently implemented
 ```
 
 **Note**: The app uses Next.js 16 with Tailwind CSS v4. The root page (`app/page.tsx`) automatically redirects authenticated users to `/clients` and unauthenticated users to `/login`.
+
+## Project Documentation
+
+**CLAUDE.md** (this file): Source of truth for architecture and development practices
+**README.md**: Outdated (mentions Next.js 14 and Tamagui instead of Next.js 16 and Tailwind CSS v4)
+**prd.md**: Full product requirements document
+**SUPABASE_SETUP.md**: Detailed Supabase setup instructions
+**RUN_MIGRATIONS.md**: Quick migration instructions
 
 ## Architecture
 
@@ -443,11 +454,14 @@ See `prd.md` for full product requirements. Key points:
 ## Known Issues / Technical Debt
 
 - **Supabase TypeScript types**: Currently using placeholder types. Real types need to be generated from schema using `npx supabase gen types`. Until then, use `as any` assertions when accessing query results to avoid `never` type errors.
+- **No test suite**: No tests currently implemented (unit, integration, or e2e)
+- **README.md outdated**: Still mentions Next.js 14 and Tamagui instead of Next.js 16 and Tailwind CSS v4
 - Supabase Auth is completely unused (we built custom JWT auth per PRD requirements)
 - Consider removing `@supabase/ssr` dependency since we don't use Supabase Auth
 - Rate limiting not yet implemented on auth endpoints
 - Audit log triggers exist in migrations but audit UI not built yet
 - Default JWT_SECRET in code should never be used in production
+- Linear issue tracking is used (issues referenced as GYM-XX in commits) but integration not documented
 
 ## UI Framework
 
