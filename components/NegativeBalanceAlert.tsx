@@ -1,5 +1,8 @@
 'use client'
 
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+
 interface NegativeBalanceAlertProps {
   balance: number
   rate: number
@@ -25,24 +28,25 @@ export function NegativeBalanceAlert({
   }
 
   return (
-    <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-6">
+    <Alert variant="destructive" className="mb-6 border-2">
       <div className="flex items-start gap-3">
         <div className="text-2xl">⚠️</div>
-        <div className="flex-1">
-          <h3 className="text-red-900 font-semibold mb-1">
+        <AlertDescription className="flex-1">
+          <h3 className="font-semibold mb-1">
             {classesOnCredit} {classesOnCredit === 1 ? 'class' : 'classes'} on credit
           </h3>
-          <p className="text-red-700 text-sm mb-3">
+          <p className="text-sm mb-3">
             Amount due: {formatCurrency(amountOwed)}
           </p>
-          <button
+          <Button
+            variant="destructive"
+            size="sm"
             onClick={onLogPaymentClick}
-            className="bg-red-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-red-700 transition-colors text-sm"
           >
             Log Payment
-          </button>
-        </div>
+          </Button>
+        </AlertDescription>
       </div>
-    </div>
+    </Alert>
   )
 }

@@ -9,6 +9,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function NewClientPage() {
   const router = useRouter()
@@ -99,113 +104,108 @@ export default function NewClientPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-10">
+      <header className="bg-card border-b sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
             <Link
               href="/clients"
-              className="text-gray-600 hover:text-gray-900"
+              className="text-muted-foreground hover:text-foreground"
             >
               ← Back
             </Link>
-            <h1 className="text-xl font-bold text-gray-900">Add Client</h1>
+            <h1 className="text-xl font-bold">Add Client</h1>
           </div>
         </div>
       </header>
 
       {/* Form */}
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-                {error}
+        <Card>
+          <CardContent className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Error Message */}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Name Field */}
+              <div className="space-y-2">
+                <Label htmlFor="name">
+                  Client Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  type="text"
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter client name"
+                  className="text-lg"
+                  required
+                />
+                {validationErrors.name && (
+                  <p className="text-sm text-destructive">{validationErrors.name}</p>
+                )}
               </div>
-            )}
 
-            {/* Name Field */}
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Client Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter client name"
-                required
-              />
-              {validationErrors.name && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.name}</p>
-              )}
-            </div>
+              {/* Phone Field */}
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number (Optional)</Label>
+                <Input
+                  type="tel"
+                  id="phone"
+                  inputMode="numeric"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="10-digit mobile number"
+                  className="text-lg"
+                  maxLength={10}
+                />
+                {validationErrors.phone && (
+                  <p className="text-sm text-destructive">{validationErrors.phone}</p>
+                )}
+              </div>
 
-            {/* Phone Field */}
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                Phone Number (Optional)
-              </label>
-              <input
-                type="tel"
-                id="phone"
-                inputMode="numeric"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="10-digit mobile number"
-                maxLength={10}
-              />
-              {validationErrors.phone && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.phone}</p>
-              )}
-            </div>
+              {/* Rate Field */}
+              <div className="space-y-2">
+                <Label htmlFor="rate">
+                  Rate per Class (₹) <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  type="number"
+                  id="rate"
+                  inputMode="numeric"
+                  value={formData.rate}
+                  onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
+                  placeholder="e.g., 800"
+                  className="text-lg"
+                  min="100"
+                  max="10000"
+                  required
+                />
+                {validationErrors.rate && (
+                  <p className="text-sm text-destructive">{validationErrors.rate}</p>
+                )}
+                <p className="text-sm text-muted-foreground">Between ₹100 and ₹10,000</p>
+              </div>
 
-            {/* Rate Field */}
-            <div>
-              <label htmlFor="rate" className="block text-sm font-medium text-gray-700 mb-2">
-                Rate per Class (₹) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="rate"
-                inputMode="numeric"
-                value={formData.rate}
-                onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
-                className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="e.g., 800"
-                min="100"
-                max="10000"
-                required
-              />
-              {validationErrors.rate && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.rate}</p>
-              )}
-              <p className="mt-1 text-sm text-gray-500">Between ₹100 and ₹10,000</p>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-3 pt-4">
-              <Link
-                href="/clients"
-                className="flex-1 bg-gray-200 text-gray-700 text-center font-semibold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Cancel
-              </Link>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? 'Adding...' : 'Add Client'}
-              </button>
-            </div>
-          </form>
-        </div>
+              {/* Buttons */}
+              <div className="flex gap-3 pt-4">
+                <Link href="/clients" className="flex-1">
+                  <Button type="button" variant="outline" size="lg" className="w-full">
+                    Cancel
+                  </Button>
+                </Link>
+                <Button type="submit" size="lg" disabled={isSubmitting} className="flex-1">
+                  {isSubmitting ? 'Adding...' : 'Add Client'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </main>
     </div>
   )

@@ -9,6 +9,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -143,92 +148,95 @@ export default function ChangeRatePage({ params }: PageProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     )
   }
 
   if (error && !clientData) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm sticky top-0 z-10">
+      <div className="min-h-screen bg-background">
+        <header className="bg-card border-b sticky top-0 z-10">
           <div className="max-w-3xl mx-auto px-4 py-4">
             <div className="flex items-center gap-3">
               <Link
                 href="/clients"
-                className="text-gray-600 hover:text-gray-900"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ← Back
               </Link>
-              <h1 className="text-xl font-bold text-gray-900">Change Rate</h1>
+              <h1 className="text-xl font-bold">Change Rate</h1>
             </div>
           </div>
         </header>
         <main className="max-w-3xl mx-auto px-4 py-6">
-          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         </main>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-10">
+      <header className="bg-card border-b sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
             <Link
               href={`/clients/${clientId}`}
-              className="text-gray-600 hover:text-gray-900"
+              className="text-muted-foreground hover:text-foreground"
             >
               ← Back
             </Link>
-            <h1 className="text-xl font-bold text-gray-900">Change Rate</h1>
+            <h1 className="text-xl font-bold">Change Rate</h1>
           </div>
         </div>
       </header>
 
       {/* Form */}
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          {/* Client Info */}
-          <div className="mb-6 pb-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">{clientData?.name}</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Current Rate: <span className="font-medium text-gray-900">₹{clientData?.currentRate}/class</span>
-            </p>
-          </div>
+        <Card>
+          <CardContent className="p-6">
+            {/* Client Info */}
+            <div className="mb-6 pb-6 border-b">
+              <h2 className="text-lg font-semibold">{clientData?.name}</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Current Rate: <span className="font-medium">₹{clientData?.currentRate}/class</span>
+              </p>
+            </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Success Message */}
             {successMessage && (
-              <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
-                ✓ {successMessage}
-              </div>
+              <Alert className="bg-green-500/10 border-green-500/50 text-green-500">
+                <AlertDescription>
+                  ✓ {successMessage}
+                </AlertDescription>
+              </Alert>
             )}
 
             {/* Error Message */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-                {error}
-              </div>
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
 
             {/* New Rate Field */}
-            <div>
-              <label htmlFor="rate" className="block text-sm font-medium text-gray-700 mb-2">
-                New Rate (₹) <span className="text-red-500">*</span>
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="rate">
+                New Rate (₹) <span className="text-destructive">*</span>
+              </Label>
+              <Input
                 type="number"
                 id="rate"
                 inputMode="numeric"
                 value={formData.rate}
                 onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
-                className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="text-lg"
                 placeholder="e.g., 1000"
                 min="100"
                 max="10000"
@@ -236,56 +244,59 @@ export default function ChangeRatePage({ params }: PageProps) {
                 disabled={isSubmitting}
               />
               {validationErrors.rate && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.rate}</p>
+                <p className="text-sm text-destructive">{validationErrors.rate}</p>
               )}
-              <p className="mt-1 text-sm text-gray-500">Between ₹100 and ₹10,000</p>
+              <p className="text-sm text-muted-foreground">Between ₹100 and ₹10,000</p>
             </div>
 
             {/* Effective Date Field */}
-            <div>
-              <label htmlFor="effectiveDate" className="block text-sm font-medium text-gray-700 mb-2">
-                Effective Date <span className="text-red-500">*</span>
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="effectiveDate">
+                Effective Date <span className="text-destructive">*</span>
+              </Label>
+              <Input
                 type="date"
                 id="effectiveDate"
                 value={formData.effectiveDate}
                 onChange={(e) => setFormData({ ...formData, effectiveDate: e.target.value })}
-                className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="text-lg"
                 required
                 disabled={isSubmitting}
               />
               {validationErrors.effectiveDate && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.effectiveDate}</p>
+                <p className="text-sm text-destructive">{validationErrors.effectiveDate}</p>
               )}
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 The date from which the new rate will apply
               </p>
             </div>
 
             {/* Info Message */}
-            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm">
-              💡 The new rate will apply to <strong>new payments only</strong>. Existing payment history will retain their original rates.
-            </div>
+            <Alert>
+              <AlertDescription className="text-sm">
+                💡 The new rate will apply to <strong>new payments only</strong>. Existing payment history will retain their original rates.
+              </AlertDescription>
+            </Alert>
 
             {/* Buttons */}
             <div className="flex gap-3 pt-4">
-              <Link
-                href={`/clients/${clientId}`}
-                className="flex-1 bg-gray-200 text-gray-700 text-center font-semibold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Cancel
+              <Link href={`/clients/${clientId}`} className="flex-1">
+                <Button type="button" variant="outline" size="lg" className="w-full">
+                  Cancel
+                </Button>
               </Link>
-              <button
+              <Button
                 type="submit"
+                size="lg"
                 disabled={isSubmitting || !!successMessage}
-                className="flex-1 bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1"
               >
                 {isSubmitting ? 'Updating...' : 'Update Rate'}
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
+        </CardContent>
+      </Card>
       </main>
     </div>
   )

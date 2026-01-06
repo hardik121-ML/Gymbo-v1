@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { ClientList } from '@/components/ClientList'
 import { LogoutButton } from '@/components/LogoutButton'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 
 interface Client {
   id: string
@@ -35,12 +37,12 @@ export default async function ClientsPage() {
   const clientList = (clients as Client[]) || []
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-10">
+      <header className="bg-card border-b sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Gymbo</h1>
+            <h1 className="text-2xl font-bold">Gymbo</h1>
             <LogoutButton />
           </div>
         </div>
@@ -50,31 +52,31 @@ export default async function ClientsPage() {
       <main className="max-w-3xl mx-auto px-4 py-6">
         {/* Add Client Button */}
         <div className="mb-6">
-          <Link
-            href="/clients/new"
-            className="w-full block bg-blue-600 text-white text-center font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            + Add Client
+          <Link href="/clients/new" className="block">
+            <Button className="w-full" size="lg">
+              + Add Client
+            </Button>
           </Link>
         </div>
 
         {/* Client List or Empty State */}
         {clientList.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <div className="text-6xl mb-4">👤</div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              No clients yet
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Add your first client to start tracking classes and payments
-            </p>
-            <Link
-              href="/clients/new"
-              className="inline-block bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Add Your First Client
-            </Link>
-          </div>
+          <Card>
+            <CardContent className="p-12 text-center">
+              <div className="text-6xl mb-4">👤</div>
+              <h2 className="text-xl font-semibold mb-2">
+                No clients yet
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                Add your first client to start tracking classes and payments
+              </p>
+              <Link href="/clients/new">
+                <Button size="lg">
+                  Add Your First Client
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         ) : (
           <ClientList clients={clientList} />
         )}

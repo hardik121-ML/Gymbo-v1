@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -103,20 +105,20 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-10">
+      <header className="bg-card border-b sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
             <Link
               href={`/clients/${id}`}
-              className="text-gray-600 hover:text-gray-900 text-xl"
+              className="text-muted-foreground hover:text-foreground text-xl"
             >
               ←
             </Link>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Payment History</h1>
-              <p className="text-sm text-gray-500">{client.name}</p>
+              <h1 className="text-xl font-bold">Payment History</h1>
+              <p className="text-sm text-muted-foreground">{client.name}</p>
             </div>
           </div>
         </div>
@@ -125,28 +127,27 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
       {/* Main Content */}
       <main className="max-w-3xl mx-auto px-4 py-6">
         {enrichedPayments.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <div className="text-6xl mb-4">💰</div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No payments recorded
-            </h3>
-            <p className="text-gray-500 mb-6">
-              Payment history will appear here once you log the first payment
-            </p>
-            <Link
-              href={`/clients/${id}`}
-              className="inline-block bg-blue-600 text-white font-medium py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Back to Client
-            </Link>
-          </div>
+          <Card>
+            <CardContent className="p-12 text-center">
+              <div className="text-6xl mb-4">💰</div>
+              <h3 className="text-lg font-semibold mb-2">
+                No payments recorded
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                Payment history will appear here once you log the first payment
+              </p>
+              <Link href={`/clients/${id}`}>
+                <Button>Back to Client</Button>
+              </Link>
+            </CardContent>
+          </Card>
         ) : (
           <>
             {/* Payments List */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
+            <Card className="overflow-hidden mb-6">
               {/* Table Header */}
-              <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
-                <div className="grid grid-cols-4 gap-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+              <div className="bg-muted/50 border-b px-6 py-3">
+                <div className="grid grid-cols-4 gap-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   <div>Date</div>
                   <div className="text-right">Amount</div>
                   <div className="text-right">Classes</div>
@@ -155,32 +156,32 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
               </div>
 
               {/* Table Body */}
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-border">
                 {enrichedPayments.map((payment: any) => (
-                  <div key={payment.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                  <div key={payment.id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
                     <div className="grid grid-cols-4 gap-4">
-                      <div className="text-gray-900">
+                      <div>
                         {formatDate(payment.payment_date)}
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-gray-900">
+                        <div className="font-semibold">
                           {formatCurrency(payment.amount)}
                         </div>
                         {payment.credit_used > 0 && (
-                          <div className="text-xs text-blue-600 mt-1">
+                          <div className="text-xs text-blue-500 mt-1">
                             +{formatCurrency(payment.credit_used)} credit used
                           </div>
                         )}
                         {payment.credit_added > 0 && (
-                          <div className="text-xs text-green-600 mt-1">
+                          <div className="text-xs text-green-500 mt-1">
                             +{formatCurrency(payment.credit_added)} credit added
                           </div>
                         )}
                       </div>
-                      <div className="text-right text-gray-700">
+                      <div className="text-right">
                         {payment.classes_added}
                       </div>
-                      <div className="text-right text-gray-500 text-sm">
+                      <div className="text-right text-muted-foreground text-sm">
                         {formatCurrency(payment.rate_at_payment)}
                       </div>
                     </div>
@@ -189,21 +190,21 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
               </div>
 
               {/* Summary Footer */}
-              <div className="bg-blue-50 border-t-2 border-blue-200 px-6 py-4">
+              <div className="bg-primary/10 border-t-2 border-primary/20 px-6 py-4">
                 <div className="grid grid-cols-4 gap-4">
-                  <div className="font-semibold text-gray-900">
+                  <div className="font-semibold">
                     Total
                   </div>
-                  <div className="text-right font-bold text-blue-900 text-lg">
+                  <div className="text-right font-bold text-lg">
                     {formatCurrency(totalAmount)}
                   </div>
-                  <div className="text-right font-bold text-blue-900 text-lg">
+                  <div className="text-right font-bold text-lg">
                     {totalClasses} {totalClasses === 1 ? 'class' : 'classes'}
                   </div>
                   <div></div>
                 </div>
               </div>
-            </div>
+            </Card>
           </>
         )}
       </main>

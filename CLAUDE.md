@@ -493,6 +493,24 @@ See `prd.md` for full product requirements. Key points:
 
 ## UI Framework
 
-**Current**: Tailwind CSS with custom HTML components for auth pages (PhoneInput, PinInput)
+**Current**: shadcn/ui + Tailwind CSS v4
 
-**Note**: Tamagui was explored but removed due to TypeScript compatibility issues with Next.js 16. All UI is now built with standard React + Tailwind CSS.
+**shadcn/ui Setup** (GYM-23):
+- Chosen after Tamagui proved incompatible with Next.js 16 TypeScript
+- Perfect integration with existing Tailwind CSS v4
+- Component library: Button, Input, Label, Card, Alert, Badge, Dialog, Select
+- Components copied into codebase (`components/ui/`) - no external dependencies
+- Configured with neutral color scheme and default Tailwind tokens
+
+**Migration Status** (Partially Complete):
+- ✅ Auth pages (login, signup) - using Card, Button, Alert
+- ✅ Client list - using Card, Button, Badge
+- ✅ Client forms (add, edit) - using Input, Label, Card, Alert, Button
+- 🔄 In Progress: Client detail, payment forms, punch components, change rate form, payment history
+
+**Why shadcn over Tamagui**:
+- Tamagui had persistent TypeScript prop compatibility issues with Next.js 16
+- shadcn built specifically for Next.js + TypeScript + Tailwind
+- Zero runtime dependencies (components are copied, not imported from npm)
+- Excellent accessibility via Radix UI primitives
+- Better suited for web-only PWA (Tamagui targets React Native cross-platform)

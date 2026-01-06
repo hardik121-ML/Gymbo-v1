@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { PunchListItem } from './PunchListItem'
+import { Button } from '@/components/ui/button'
 
 interface Punch {
   id: string
@@ -94,7 +95,7 @@ export function PunchesListGrouped({
 
   if (punches.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-muted-foreground">
         <div className="text-4xl mb-2">📅</div>
         <p>No classes recorded yet</p>
       </div>
@@ -106,7 +107,7 @@ export function PunchesListGrouped({
       {monthYearKeys.map((monthYear, idx) => (
         <div key={monthYear} className={idx > 0 ? 'mt-6' : ''}>
           {/* Month Header */}
-          <div className="text-sm font-semibold text-gray-600 mb-3 px-1">
+          <div className="text-sm font-semibold text-muted-foreground mb-3 px-1">
             {monthYear}
           </div>
 
@@ -127,7 +128,7 @@ export function PunchesListGrouped({
       {/* Pagination Info */}
       {total > 0 && (
         <div className="mt-4 text-center">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Showing {punches.length} of {total} classes
           </p>
         </div>
@@ -136,13 +137,13 @@ export function PunchesListGrouped({
       {/* Load More Button */}
       {hasMore && (
         <div className="mt-2 text-center">
-          <button
+          <Button
+            variant="outline"
             onClick={loadMore}
             disabled={isLoading}
-            className="bg-white text-gray-700 font-medium py-3 px-6 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Loading...' : 'Load More'}
-          </button>
+          </Button>
         </div>
       )}
     </div>

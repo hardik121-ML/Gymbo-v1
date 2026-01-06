@@ -8,6 +8,17 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface LogPaymentButtonProps {
   clientId: string
@@ -201,199 +212,205 @@ export function LogPaymentButton({
   return (
     <>
       {/* Payment Button */}
-      <button
+      <Button
+        variant="outline"
         onClick={handleOpenModal}
         data-log-payment-button
-        className="bg-white text-gray-700 border border-gray-300 font-medium py-3 px-4 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+        className="w-full"
       >
         💰 Log Payment
-      </button>
+      </Button>
 
       {/* Payment Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center z-50">
-          <div className="bg-white w-full max-w-3xl md:rounded-2xl rounded-t-2xl p-6 animate-slide-up">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Log Payment for {clientName}
-            </h2>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Log Payment for {clientName}</DialogTitle>
+          </DialogHeader>
 
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4">
-                {error}
-              </div>
-            )}
+          {/* Error Message */}
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Amount Input */}
-              <div>
-                <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
-                  Amount Received (₹)
-                </label>
-                <input
-                  type="number"
-                  id="amount"
-                  inputMode="decimal"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., 8000"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Amount Input */}
+            <div className="space-y-2">
+              <Label htmlFor="amount">
+                Amount Received (₹)
+              </Label>
+              <Input
+                type="number"
+                id="amount"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="text-lg"
+                placeholder="e.g., 8000"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
 
-              {/* Use Credit Balance Checkbox */}
-              {currentCredit > 0 && (
-                <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            {/* Use Credit Balance Checkbox */}
+            {currentCredit > 0 && (
+              <Alert className="bg-blue-500/10 border-blue-500/50">
+                <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
                     id="use-credit"
                     checked={useCredit}
                     onChange={(e) => setUseCredit(e.target.checked)}
-                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-5 h-5 rounded"
                   />
-                  <label htmlFor="use-credit" className="flex-1 text-sm font-medium text-gray-900 cursor-pointer">
+                  <label htmlFor="use-credit" className="flex-1 text-sm font-medium cursor-pointer">
                     Use Credit Balance (₹{(currentCredit / 100).toFixed(0)} available)
                   </label>
                 </div>
-              )}
+              </Alert>
+            )}
 
-              {/* Classes Added */}
-              <div>
-                <label htmlFor="classes" className="block text-sm font-medium text-gray-700 mb-2">
-                  Classes Added
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    id="classes"
-                    inputMode="numeric"
-                    value={classesAdded}
-                    onChange={(e) => {
-                      setClassesAdded(e.target.value)
-                      setIsManualClasses(true)
-                    }}
-                    className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Auto-calculated"
-                    min="0"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsManualClasses(false)
-                      // Trigger recalculation
-                      const amountNum = parseFloat(amount)
-                      if (!isNaN(amountNum) && amountNum > 0) {
-                        const calculatedClasses = Math.floor(amountNum / rateInRupees)
-                        setClassesAdded(calculatedClasses.toString())
-                      }
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    title="Reset to auto-calculated value"
-                  >
-                    ✎
-                  </button>
-                </div>
-                {amount && classesAdded && !useCredit && (
-                  <p className="mt-2 text-sm text-gray-600">
-                    ₹{amount} ÷ ₹{rateInRupees.toFixed(0)} = {classesAdded} classes
-                  </p>
-                )}
-                {amount && classesAdded && useCredit && getCreditUsed() > 0 && (
-                  <p className="mt-2 text-sm text-gray-600">
-                    (₹{amount} + ₹{(getCreditUsed() / 100).toFixed(0)} credit) ÷ ₹{rateInRupees.toFixed(0)} = {classesAdded} classes
-                  </p>
-                )}
-              </div>
-
-              {/* Payment Date */}
-              <div>
-                <label htmlFor="payment-date" className="block text-sm font-medium text-gray-700 mb-2">
-                  Payment Date
-                </label>
-                <input
-                  type="date"
-                  id="payment-date"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  max={getTodayDate()}
-                  className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            {/* Classes Added */}
+            <div className="space-y-2">
+              <Label htmlFor="classes">
+                Classes Added
+              </Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  id="classes"
+                  inputMode="numeric"
+                  value={classesAdded}
+                  onChange={(e) => {
+                    setClassesAdded(e.target.value)
+                    setIsManualClasses(true)
+                  }}
+                  className="text-lg pr-10"
+                  placeholder="Auto-calculated"
+                  min="0"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsManualClasses(false)
+                    // Trigger recalculation
+                    const amountNum = parseFloat(amount)
+                    if (!isNaN(amountNum) && amountNum > 0) {
+                      const calculatedClasses = Math.floor(amountNum / rateInRupees)
+                      setClassesAdded(calculatedClasses.toString())
+                    }
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  title="Reset to auto-calculated value"
+                >
+                  ✎
+                </button>
               </div>
+              {amount && classesAdded && !useCredit && (
+                <p className="text-sm text-muted-foreground">
+                  ₹{amount} ÷ ₹{rateInRupees.toFixed(0)} = {classesAdded} classes
+                </p>
+              )}
+              {amount && classesAdded && useCredit && getCreditUsed() > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  (₹{amount} + ₹{(getCreditUsed() / 100).toFixed(0)} credit) ÷ ₹{rateInRupees.toFixed(0)} = {classesAdded} classes
+                </p>
+              )}
+            </div>
 
-              {/* Balance Preview */}
-              {classesAdded !== '' && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-                  <p className="text-sm font-medium text-blue-900">
+            {/* Payment Date */}
+            <div className="space-y-2">
+              <Label htmlFor="payment-date">
+                Payment Date
+              </Label>
+              <Input
+                type="date"
+                id="payment-date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                max={getTodayDate()}
+                className="text-lg"
+                required
+              />
+            </div>
+
+            {/* Balance Preview */}
+            {classesAdded !== '' && (
+              <Alert className="bg-blue-500/10 border-blue-500/50">
+                <AlertDescription>
+                  <p className="text-sm font-medium mb-2">
                     Payment Summary
                   </p>
                   <div className="space-y-1">
-                    <p className="text-sm text-blue-800">
+                    <p className="text-sm">
                       Balance: {currentBalance} + {classesAdded} = <strong>{getNewBalance()}</strong> classes
                     </p>
                     {useCredit && getCreditUsed() > 0 && (
-                      <p className="text-sm text-blue-800">
+                      <p className="text-sm">
                         Credit Used: ₹{(getCreditUsed() / 100).toFixed(0)}
                       </p>
                     )}
-                    <p className="text-sm text-blue-800">
+                    <p className="text-sm">
                       Credit: ₹{(currentCredit / 100).toFixed(0)} {useCredit && getCreditUsed() > 0 ? `- ₹${(getCreditUsed() / 100).toFixed(0)}` : ''} {getCreditRemainder() > 0 ? `+ ₹${(getCreditRemainder() / 100).toFixed(0)}` : ''} = <strong>₹{(getNewCredit() / 100).toFixed(0)}</strong>
                     </p>
                     {useCredit && getCreditUsed() > 0 && (
-                      <p className="text-xs text-blue-600 mt-2">
+                      <p className="text-xs text-blue-400 mt-2">
                         ✅ Using ₹{(getCreditUsed() / 100).toFixed(0)} credit to complete this payment
                       </p>
                     )}
                     {classesAdded === '0' && getCreditRemainder() > 0 && (
-                      <p className="text-xs text-blue-600 mt-2">
+                      <p className="text-xs text-blue-400 mt-2">
                         💰 Full amount of ₹{(getCreditRemainder() / 100).toFixed(0)} will be added as credit
                       </p>
                     )}
                     {classesAdded !== '0' && !useCredit && getCreditRemainder() > 0 && (
-                      <p className="text-xs text-blue-600 mt-2">
+                      <p className="text-xs text-blue-400 mt-2">
                         💡 Remainder of ₹{(getCreditRemainder() / 100).toFixed(0)} will be added as credit
                       </p>
                     )}
                   </div>
-                </div>
-              )}
+                </AlertDescription>
+              </Alert>
+            )}
 
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  disabled={isSubmitting}
-                  className="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !amount || classesAdded === '' || !paymentDate}
-                  className="flex-1 bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? 'Saving...' : 'Save Payment'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={handleCloseModal}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="lg"
+                disabled={isSubmitting || !amount || classesAdded === '' || !paymentDate}
+                className="flex-1"
+              >
+                {isSubmitting ? 'Saving...' : 'Save Payment'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Success Feedback */}
       {showSuccess && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 text-center animate-scale-in">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-2xl p-8 text-center animate-scale-in border shadow-lg">
             <div className="text-6xl mb-4">✅</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+            <h3 className="text-2xl font-bold mb-2">
               Payment Recorded!
             </h3>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               Balance updated successfully
             </p>
           </div>
@@ -402,14 +419,6 @@ export function LogPaymentButton({
 
       {/* Add animations */}
       <style jsx>{`
-        @keyframes slide-up {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
         @keyframes scale-in {
           from {
             transform: scale(0.8);
@@ -419,9 +428,6 @@ export function LogPaymentButton({
             transform: scale(1);
             opacity: 1;
           }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
         }
         .animate-scale-in {
           animation: scale-in 0.3s ease-out;

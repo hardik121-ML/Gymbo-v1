@@ -2,6 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface PunchListItemProps {
   id: string
@@ -175,8 +185,8 @@ export function PunchListItem({ id, punchDate, paidWithCredit = false }: PunchLi
 
   if (showSuccess) {
     return (
-      <div className="flex items-center justify-center py-2 border-b border-gray-100 last:border-0 bg-green-50 animate-pulse">
-        <span className="text-green-600 font-medium">✓ Punch removed</span>
+      <div className="flex items-center justify-center py-2 border-b last:border-0 bg-green-500/10 animate-pulse">
+        <span className="text-green-500 font-medium">✓ Punch removed</span>
       </div>
     )
   }
@@ -184,15 +194,15 @@ export function PunchListItem({ id, punchDate, paidWithCredit = false }: PunchLi
   return (
     <>
       <div
-        className={`flex items-center justify-between py-2 border-b border-gray-100 last:border-0 transition-all duration-300 ${
+        className={`flex items-center justify-between py-2 border-b last:border-0 transition-all duration-300 ${
           isStrikethrough ? 'opacity-50 line-through' : ''
         }`}
       >
         <div className="flex-1">
-          <span className="text-gray-700">{formatDate(punchDate)}</span>
-          <span className="text-gray-500 text-sm ml-3">{formatWeekday(punchDate)}</span>
+          <span>{formatDate(punchDate)}</span>
+          <span className="text-muted-foreground text-sm ml-3">{formatWeekday(punchDate)}</span>
           {paidWithCredit && (
-            <span className="text-blue-600 text-xs ml-3 font-medium">
+            <span className="text-blue-400 text-xs ml-3 font-medium">
               💳 Paid from credit
             </span>
           )}
@@ -201,14 +211,14 @@ export function PunchListItem({ id, punchDate, paidWithCredit = false }: PunchLi
           <div className="flex gap-2">
             <button
               onClick={handleEditClick}
-              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded p-2 transition-colors"
+              className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded p-2 transition-colors"
               aria-label="Edit punch date"
             >
               ✎
             </button>
             <button
               onClick={() => setShowConfirm(true)}
-              className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-2 transition-colors"
+              className="text-destructive hover:text-destructive/80 hover:bg-destructive/10 rounded p-2 transition-colors"
               aria-label="Delete punch"
             >
               ✕
@@ -218,109 +228,98 @@ export function PunchListItem({ id, punchDate, paidWithCredit = false }: PunchLi
       </div>
 
       {/* Confirmation Dialog */}
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-sm w-full p-6 animate-[scale-in_0.2s_ease-out]">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Remove punch?
-            </h3>
-            <p className="text-gray-600 mb-6">
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove punch?</DialogTitle>
+            <DialogDescription>
               Remove punch from {formatDate(punchDate)}? This will restore 1 class to the balance.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                className="flex-1 bg-red-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Remove
-              </button>
-            </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirm(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              className="flex-1"
+            >
+              Remove
+            </Button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Date Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-sm w-full p-6 animate-[scale-in_0.2s_ease-out]">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Edit Punch Date
-            </h3>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date
-              </label>
-              <input
-                type="date"
-                value={editDate}
-                onChange={(e) => setEditDate(e.target.value)}
-                min={getMinDate()}
-                max={getMaxDate()}
-                disabled={isEditing}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Must be within last 3 months
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowEditModal(false)
-                  setEditDate('')
-                }}
-                disabled={isEditing}
-                className="flex-1 bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleEditSave}
-                disabled={isEditing || !editDate}
-                className="flex-1 bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {isEditing ? 'Saving...' : 'Save'}
-              </button>
-            </div>
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit Punch Date</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mb-4">
+            <Label htmlFor="edit-date">
+              Date
+            </Label>
+            <Input
+              id="edit-date"
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+              min={getMinDate()}
+              max={getMaxDate()}
+              disabled={isEditing}
+            />
+            <p className="text-xs text-muted-foreground">
+              Must be within last 3 months
+            </p>
           </div>
-        </div>
-      )}
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowEditModal(false)
+                setEditDate('')
+              }}
+              disabled={isEditing}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditSave}
+              disabled={isEditing || !editDate}
+              className="flex-1"
+            >
+              {isEditing ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Undo Snackbar */}
       {showUndo && (
         <div className="fixed bottom-20 left-4 right-4 z-50 animate-[slide-up_0.3s_ease-out]">
-          <div className="bg-gray-900 text-white rounded-lg shadow-lg p-4 flex items-center justify-between max-w-md mx-auto">
+          <div className="bg-card border rounded-lg shadow-lg p-4 flex items-center justify-between max-w-md mx-auto">
             <span className="text-sm">
               Punch removed ({countdown}s)
             </span>
-            <button
+            <Button
+              size="sm"
               onClick={handleUndo}
-              className="bg-white text-gray-900 font-medium px-4 py-1 rounded text-sm hover:bg-gray-100 transition-colors"
+              variant="secondary"
             >
               UNDO
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       <style jsx>{`
-        @keyframes scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
         @keyframes slide-up {
           from {
             opacity: 0;

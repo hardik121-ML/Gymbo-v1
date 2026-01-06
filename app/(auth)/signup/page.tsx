@@ -4,6 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PhoneInput } from '@/components/auth/PhoneInput'
 import { PinInput } from '@/components/auth/PinInput'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 type SignupStep = 'phone' | 'create-pin' | 'confirm-pin'
 
@@ -102,116 +105,124 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Gymbo</h1>
-          <p className="text-lg text-gray-600">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <Card className="max-w-md w-full">
+        <CardHeader className="text-center">
+          <CardTitle className="text-4xl mb-2">Gymbo</CardTitle>
+          <CardDescription className="text-lg">
             {step === 'phone' && 'Create your account'}
             {step === 'create-pin' && 'Secure your account'}
             {step === 'confirm-pin' && 'Confirm your PIN'}
-          </p>
-        </div>
+          </CardDescription>
+        </CardHeader>
 
-        {/* Progress Indicator */}
-        <div className="flex justify-center gap-2">
-          <div className={`h-2 w-16 rounded-full ${step === 'phone' ? 'bg-blue-600' : 'bg-blue-600'}`} />
-          <div className={`h-2 w-16 rounded-full ${step === 'create-pin' || step === 'confirm-pin' ? 'bg-blue-600' : 'bg-gray-300'}`} />
-          <div className={`h-2 w-16 rounded-full ${step === 'confirm-pin' ? 'bg-blue-600' : 'bg-gray-300'}`} />
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-            {error}
+        <CardContent className="space-y-6">
+          {/* Progress Indicator */}
+          <div className="flex justify-center gap-2">
+            <div className={`h-2 w-16 rounded-full ${step === 'phone' ? 'bg-primary' : 'bg-primary'}`} />
+            <div className={`h-2 w-16 rounded-full ${step === 'create-pin' || step === 'confirm-pin' ? 'bg-primary' : 'bg-muted'}`} />
+            <div className={`h-2 w-16 rounded-full ${step === 'confirm-pin' ? 'bg-primary' : 'bg-muted'}`} />
           </div>
-        )}
 
-        {/* Phone Step */}
-        {step === 'phone' && (
-          <form onSubmit={handlePhoneSubmit} className="space-y-6">
-            <PhoneInput
-              value={phone}
-              onChange={setPhone}
-              required
-            />
+          {/* Error Message */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-            <button
-              type="submit"
-              disabled={phone.replace(/\D/g, '').length !== 10}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              Continue
-            </button>
+          {/* Phone Step */}
+          {step === 'phone' && (
+            <form onSubmit={handlePhoneSubmit} className="space-y-6">
+              <PhoneInput
+                value={phone}
+                onChange={setPhone}
+                required
+              />
 
-            <p className="text-center text-sm text-gray-600">
-              Already have an account?{' '}
-              <a href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
-                Log in
-              </a>
-            </p>
-          </form>
-        )}
-
-        {/* Create PIN Step */}
-        {step === 'create-pin' && (
-          <form onSubmit={handlePinSubmit} className="space-y-6">
-            <PinInput
-              value={pin}
-              onChange={setPin}
-              label="Create PIN"
-            />
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleBack}
-                className="flex-1 py-3 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-colors"
-              >
-                Back
-              </button>
-              <button
+              <Button
                 type="submit"
-                disabled={pin.length !== 4}
-                className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                disabled={phone.replace(/\D/g, '').length !== 10}
+                className="w-full"
+                size="lg"
               >
                 Continue
-              </button>
-            </div>
-          </form>
-        )}
+              </Button>
 
-        {/* Confirm PIN Step */}
-        {step === 'confirm-pin' && (
-          <form onSubmit={handleConfirmPinSubmit} className="space-y-6">
-            <PinInput
-              value={confirmPin}
-              onChange={setConfirmPin}
-              error={error}
-              confirmMode
-            />
+              <p className="text-center text-sm text-muted-foreground">
+                Already have an account?{' '}
+                <a href="/login" className="text-primary hover:underline font-medium">
+                  Log in
+                </a>
+              </p>
+            </form>
+          )}
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleBack}
-                disabled={isLoading}
-                className="flex-1 py-3 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-colors disabled:opacity-50"
-              >
-                Back
-              </button>
-              <button
-                type="submit"
-                disabled={confirmPin.length !== 4 || isLoading}
-                className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                {isLoading ? 'Creating account...' : 'Create Account'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
+          {/* Create PIN Step */}
+          {step === 'create-pin' && (
+            <form onSubmit={handlePinSubmit} className="space-y-6">
+              <PinInput
+                value={pin}
+                onChange={setPin}
+                label="Create PIN"
+              />
+
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  onClick={handleBack}
+                  variant="outline"
+                  size="lg"
+                  className="flex-1"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={pin.length !== 4}
+                  size="lg"
+                  className="flex-1"
+                >
+                  Continue
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Confirm PIN Step */}
+          {step === 'confirm-pin' && (
+            <form onSubmit={handleConfirmPinSubmit} className="space-y-6">
+              <PinInput
+                value={confirmPin}
+                onChange={setConfirmPin}
+                error={error}
+                confirmMode
+              />
+
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  onClick={handleBack}
+                  disabled={isLoading}
+                  variant="outline"
+                  size="lg"
+                  className="flex-1"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={confirmPin.length !== 4 || isLoading}
+                  size="lg"
+                  className="flex-1"
+                >
+                  {isLoading ? 'Creating account...' : 'Create Account'}
+                </Button>
+              </div>
+            </form>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -6,6 +6,8 @@
 
 import Link from 'next/link'
 import { BalanceIndicator } from './BalanceIndicator'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 
 interface ClientCardProps {
   id: string
@@ -22,30 +24,32 @@ function formatCurrency(paise: number): string {
 export function ClientCard({ id, name, balance, rate, credit }: ClientCardProps) {
   return (
     <Link href={`/clients/${id}`}>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3 flex-1">
-            <BalanceIndicator balance={balance} size="md" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 text-lg">{name}</h3>
-              <p className="text-sm text-gray-600">{formatCurrency(rate)}/class</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className={`text-2xl font-bold ${balance < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-              {balance}
-            </div>
-            <div className="text-xs text-gray-500">
-              {balance === 1 ? 'class' : 'classes'}
-            </div>
-            {credit && credit > 0 && (
-              <div className="text-xs text-blue-600 mt-1">
-                +{formatCurrency(credit)} credit
+      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3 flex-1">
+              <BalanceIndicator balance={balance} size="md" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg">{name}</h3>
+                <p className="text-sm text-muted-foreground">{formatCurrency(rate)}/class</p>
               </div>
-            )}
+            </div>
+            <div className="text-right">
+              <div className={`text-2xl font-bold ${balance < 0 ? 'text-destructive' : ''}`}>
+                {balance}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {balance === 1 ? 'class' : 'classes'}
+              </div>
+              {credit && credit > 0 && (
+                <Badge variant="secondary" className="mt-1 text-xs">
+                  +{formatCurrency(credit)} credit
+                </Badge>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </Link>
   )
 }
