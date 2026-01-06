@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { PunchClassButton } from '@/components/PunchClassButton'
-import { PunchListItem } from '@/components/PunchListItem'
+import { PunchesListGrouped } from '@/components/PunchesListGrouped'
 import { ClientDetailActions } from '@/components/ClientDetailActions'
 import { ClientBalanceCard } from '@/components/ClientBalanceCard'
 import { LogPaymentButton } from '@/components/LogPaymentButton'
@@ -37,32 +37,45 @@ export default async function ClientDetailPage({ params }: PageProps) {
   // Type assertion workaround for Supabase types
   const client = data as any
 
-  // Fetch recent punches (last 10)
+  // Fetch initial punches (first 20 for initial load)
+  const initialLimit = 20
   const { data: punchesData } = await supabase
     .from('punches')
     .select('id, punch_date')
     .eq('client_id', id)
     .eq('is_deleted', false)
     .order('punch_date', { ascending: false })
-    .limit(10)
+    .limit(initialLimit)
 
   const punches = (punchesData as any[]) || []
 
+  // Get total count for pagination
+  const { count: totalPunches } = await supabase
+    .from('punches')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', id)
+    .eq('is_deleted', false)
+
   // Fetch audit logs to check which punches were paid with credit
   const punchIds = punches.map(p => p.id)
-  const { data: punchAuditData } = await supabase
-    .from('audit_log')
-    .select('details')
-    .eq('action', 'PUNCH_ADD')
-    .in('details->>punch_id', punchIds)
+  let punchAuditData: any[] = []
+
+  // Only query audit logs if there are punches
+  if (punchIds.length > 0) {
+    const { data } = await supabase
+      .from('audit_log')
+      .select('details')
+      .eq('action', 'PUNCH_ADD')
+      .in('details->>punch_id', punchIds)
+
+    punchAuditData = data || []
+  }
 
   // Create map of punch_id to paid_with_credit
   const paidWithCreditMap = new Map()
-  if (punchAuditData) {
-    for (const audit of punchAuditData as any[]) {
-      if (audit.details?.punch_id && audit.details?.paid_with_credit) {
-        paidWithCreditMap.set(audit.details.punch_id, true)
-      }
+  for (const audit of punchAuditData as any[]) {
+    if (audit.details?.punch_id && audit.details?.paid_with_credit) {
+      paidWithCreditMap.set(audit.details.punch_id, true)
     }
   }
 
@@ -167,25 +180,13 @@ export default async function ClientDetailPage({ params }: PageProps) {
         {/* Recent Punches */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Recent Classes
+            Classes History
           </h2>
-          {enrichedPunches.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <div className="text-4xl mb-2">📅</div>
-              <p>No classes recorded yet</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {enrichedPunches.map((punch: any) => (
-                <PunchListItem
-                  key={punch.id}
-                  id={punch.id}
-                  punchDate={punch.punch_date}
-                  paidWithCredit={punch.paid_with_credit}
-                />
-              ))}
-            </div>
-          )}
+          <PunchesListGrouped
+            clientId={client.id}
+            initialPunches={enrichedPunches}
+            initialTotal={totalPunches || 0}
+          />
         </div>
 
         {/* Action Buttons */}

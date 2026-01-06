@@ -12,6 +12,124 @@ interface RouteContext {
   params: Promise<{ id: string }>
 }
 
+// GET /api/clients/[id]/punches - Fetch punches for a client with pagination
+export async function GET(request: Request, context: RouteContext) {
+  try {
+    const { id: clientId } = await context.params
+
+    // Check authentication
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Parse query parameters for pagination
+    const { searchParams } = new URL(request.url)
+    const offset = parseInt(searchParams.get('offset') || '0', 10)
+    const limit = parseInt(searchParams.get('limit') || '20', 10)
+
+    // Validate pagination params
+    if (offset < 0 || limit < 1 || limit > 100) {
+      return NextResponse.json(
+        { error: 'Invalid pagination parameters' },
+        { status: 400 }
+      )
+    }
+
+    const supabase = createAdminClient()
+
+    // Verify client exists and belongs to trainer
+    const { data: clientData, error: clientError } = await supabase
+      .from('clients')
+      .select('id, trainer_id')
+      .eq('id', clientId)
+      .eq('trainer_id', session.trainerId)
+      .single()
+
+    if (clientError || !clientData) {
+      return NextResponse.json(
+        { error: 'Client not found' },
+        { status: 404 }
+      )
+    }
+
+    // Fetch punches with pagination
+    const { data: punchesData, error: punchesError } = await supabase
+      .from('punches')
+      .select('id, punch_date')
+      .eq('client_id', clientId)
+      .eq('is_deleted', false)
+      .order('punch_date', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (punchesError) {
+      console.error('Error fetching punches:', punchesError)
+      return NextResponse.json(
+        { error: 'Failed to fetch punches' },
+        { status: 500 }
+      )
+    }
+
+    const punches = (punchesData as any[]) || []
+
+    // Get total count for pagination metadata
+    const { count, error: countError } = await supabase
+      .from('punches')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('is_deleted', false)
+
+    if (countError) {
+      console.error('Error counting punches:', countError)
+    }
+
+    // Fetch audit logs to check which punches were paid with credit
+    const punchIds = punches.map(p => p.id)
+    let punchAuditData: any[] = []
+
+    // Only query audit logs if there are punches
+    if (punchIds.length > 0) {
+      const { data } = await supabase
+        .from('audit_log')
+        .select('details')
+        .eq('action', 'PUNCH_ADD')
+        .in('details->>punch_id', punchIds)
+
+      punchAuditData = data || []
+    }
+
+    // Create map of punch_id to paid_with_credit
+    const paidWithCreditMap = new Map()
+    for (const audit of punchAuditData as any[]) {
+      if (audit.details?.punch_id && audit.details?.paid_with_credit) {
+        paidWithCreditMap.set(audit.details.punch_id, true)
+      }
+    }
+
+    // Enrich punches with credit info
+    const enrichedPunches = punches.map(p => ({
+      ...p,
+      paid_with_credit: paidWithCreditMap.get(p.id) || false
+    }))
+
+    return NextResponse.json({
+      punches: enrichedPunches,
+      pagination: {
+        offset,
+        limit,
+        total: count || 0,
+        hasMore: (offset + limit) < (count || 0)
+      }
+    })
+  } catch (error) {
+    console.error('Unexpected error in GET /api/clients/[id]/punches:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
 // POST /api/clients/[id]/punches - Record a class (punch)
 export async function POST(request: Request, context: RouteContext) {
   try {
