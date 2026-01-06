@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { BalanceIndicator } from '@/components/BalanceIndicator'
 import { PunchClassButton } from '@/components/PunchClassButton'
 import { LogPaymentButton } from '@/components/LogPaymentButton'
+import { PunchListItem } from '@/components/PunchListItem'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -114,23 +115,11 @@ export default async function ClientDetailPage({ params }: PageProps) {
           ) : (
             <div className="space-y-2">
               {punches.map((punch: any) => (
-                <div
+                <PunchListItem
                   key={punch.id}
-                  className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
-                >
-                  <span className="text-gray-700">
-                    {new Date(punch.punch_date).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </span>
-                  <span className="text-gray-500 text-sm">
-                    {new Date(punch.punch_date).toLocaleDateString('en-IN', {
-                      weekday: 'short',
-                    })}
-                  </span>
-                </div>
+                  id={punch.id}
+                  punchDate={punch.punch_date}
+                />
               ))}
             </div>
           )}
