@@ -41,6 +41,30 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
 
   const payments = (paymentsData as any[]) || []
 
+  // Fetch audit logs for these payments to get credit usage info
+  const paymentIds = payments.map(p => p.id)
+  const { data: auditData } = await supabase
+    .from('audit_log')
+    .select('details')
+    .eq('action', 'PAYMENT_ADD')
+    .in('details->>payment_id', paymentIds)
+
+  // Create a map of payment_id to credit_used
+  const creditUsedMap = new Map()
+  if (auditData) {
+    for (const audit of auditData as any[]) {
+      if (audit.details?.payment_id && audit.details?.credit_used) {
+        creditUsedMap.set(audit.details.payment_id, audit.details.credit_used)
+      }
+    }
+  }
+
+  // Enrich payments with credit_used info
+  const enrichedPayments = payments.map(p => ({
+    ...p,
+    credit_used: creditUsedMap.get(p.id) || 0
+  }))
+
   // Calculate totals
   const totalAmount = payments.reduce((sum, payment) => sum + payment.amount, 0)
   const totalClasses = payments.reduce((sum, payment) => sum + payment.classes_added, 0)
@@ -79,7 +103,7 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
 
       {/* Main Content */}
       <main className="max-w-3xl mx-auto px-4 py-6">
-        {payments.length === 0 ? (
+        {enrichedPayments.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
             <div className="text-6xl mb-4">💰</div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -111,14 +135,21 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
 
               {/* Table Body */}
               <div className="divide-y divide-gray-100">
-                {payments.map((payment: any) => (
+                {enrichedPayments.map((payment: any) => (
                   <div key={payment.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                     <div className="grid grid-cols-4 gap-4">
                       <div className="text-gray-900">
                         {formatDate(payment.payment_date)}
                       </div>
-                      <div className="text-right font-semibold text-gray-900">
-                        {formatCurrency(payment.amount)}
+                      <div className="text-right">
+                        <div className="font-semibold text-gray-900">
+                          {formatCurrency(payment.amount)}
+                        </div>
+                        {payment.credit_used > 0 && (
+                          <div className="text-xs text-blue-600 mt-1">
+                            +{formatCurrency(payment.credit_used)} credit
+                          </div>
+                        )}
                       </div>
                       <div className="text-right text-gray-700">
                         {payment.classes_added}

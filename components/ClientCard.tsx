@@ -12,13 +12,14 @@ interface ClientCardProps {
   name: string
   balance: number
   rate: number // Rate in paise
+  credit?: number // Credit balance in paise (optional)
 }
 
 function formatCurrency(paise: number): string {
   return `₹${(paise / 100).toFixed(0)}`
 }
 
-export function ClientCard({ id, name, balance, rate }: ClientCardProps) {
+export function ClientCard({ id, name, balance, rate, credit }: ClientCardProps) {
   return (
     <Link href={`/clients/${id}`}>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer">
@@ -37,6 +38,11 @@ export function ClientCard({ id, name, balance, rate }: ClientCardProps) {
             <div className="text-xs text-gray-500">
               {balance === 1 ? 'class' : 'classes'}
             </div>
+            {credit && credit > 0 && (
+              <div className="text-xs text-blue-600 mt-1">
+                +{formatCurrency(credit)} credit
+              </div>
+            )}
           </div>
         </div>
       </div>

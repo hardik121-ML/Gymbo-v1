@@ -25,12 +25,20 @@ export async function POST(request: Request, context: RouteContext) {
 
     // Parse request body
     const body = await request.json()
-    const { amount, classesAdded, date } = body
+    const { amount, classesAdded, date, creditUsed = 0 } = body
 
     // Validate amount (in paise)
     if (!amount || typeof amount !== 'number' || amount <= 0) {
       return NextResponse.json(
         { error: 'Amount must be a positive number' },
+        { status: 400 }
+      )
+    }
+
+    // Validate creditUsed (optional, defaults to 0)
+    if (typeof creditUsed !== 'number' || creditUsed < 0) {
+      return NextResponse.json(
+        { error: 'Credit used must be a non-negative number' },
         { status: 400 }
       )
     }
@@ -65,7 +73,7 @@ export async function POST(request: Request, context: RouteContext) {
     // Verify client exists and belongs to trainer
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
-      .select('id, balance, trainer_id, current_rate')
+      .select('id, balance, credit_balance, trainer_id, current_rate')
       .eq('id', clientId)
       .eq('trainer_id', session.trainerId)
       .single()
@@ -79,7 +87,24 @@ export async function POST(request: Request, context: RouteContext) {
 
     const client = clientData as any
     const previousBalance = client.balance
+    const previousCredit = client.credit_balance || 0
     const rateAtPayment = client.current_rate
+
+    // Validate that creditUsed doesn't exceed available credit
+    if (creditUsed > previousCredit) {
+      return NextResponse.json(
+        { error: `Cannot use ₹${(creditUsed / 100).toFixed(0)} credit. Only ₹${(previousCredit / 100).toFixed(0)} available.` },
+        { status: 400 }
+      )
+    }
+
+    // Calculate remainder (credit) from payment
+    // Example: ₹10,500 payment at ₹2,500/class = 4 classes + ₹500 credit
+    // Or with credit used: ₹50 payment + ₹50 credit used = ₹100 total at ₹100/class = 1 class
+    const totalPaid = amount + creditUsed
+    const totalCostOfClasses = classesAdded * rateAtPayment
+    const remainder = totalPaid - totalCostOfClasses
+    const newCredit = previousCredit - creditUsed + remainder
 
     // Create payment record
     const { data: paymentData, error: paymentError } = await supabase
@@ -104,11 +129,12 @@ export async function POST(request: Request, context: RouteContext) {
 
     const payment = paymentData as any
 
-    // Increment client balance
+    // Increment client balance and credit
     const newBalance = previousBalance + classesAdded
     const updateResult: any = await (supabase.from('clients') as any)
       .update({
         balance: newBalance,
+        credit_balance: newCredit,
         updated_at: new Date().toISOString(),
       })
       .eq('id', clientId)
@@ -142,6 +168,10 @@ export async function POST(request: Request, context: RouteContext) {
           rate_at_payment: rateAtPayment,
           payment_date: date,
           payment_id: payment.id,
+          credit_used: creditUsed,
+          credit_added: remainder,
+          previous_credit: previousCredit,
+          new_credit: newCredit,
         },
         previous_balance: previousBalance,
         new_balance: newBalance,
@@ -156,6 +186,10 @@ export async function POST(request: Request, context: RouteContext) {
       payment,
       newBalance,
       previousBalance,
+      newCredit,
+      previousCredit,
+      creditUsed,
+      creditAdded: remainder,
     }, { status: 201 })
   } catch (error) {
     console.error('Unexpected error in POST /api/clients/[id]/payments:', error)

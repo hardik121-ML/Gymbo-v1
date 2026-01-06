@@ -98,6 +98,13 @@ export default async function ClientDetailPage({ params }: PageProps) {
           <p className="text-lg text-gray-600 mb-4">
             {getBalanceStatusText(client.balance)}
           </p>
+          {client.credit_balance > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 mb-4 inline-block">
+              <p className="text-sm font-medium text-blue-900">
+                💳 Credit: ₹{(client.credit_balance / 100).toFixed(0)}
+              </p>
+            </div>
+          )}
           <p className="text-sm text-gray-500">
             Rate: ₹{(client.current_rate / 100).toFixed(0)} per class
           </p>
@@ -140,6 +147,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
             clientName={client.name}
             currentBalance={client.balance}
             currentRate={client.current_rate}
+            currentCredit={client.credit_balance || 0}
           />
           <Link
             href={`/clients/${id}/history`}

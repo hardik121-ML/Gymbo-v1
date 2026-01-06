@@ -14,6 +14,7 @@ interface Client {
   name: string
   balance: number
   current_rate: number
+  credit_balance?: number
   updated_at: string
 }
 
@@ -86,6 +87,7 @@ export function ClientList({ clients }: ClientListProps) {
             name={client.name}
             balance={client.balance}
             rate={client.current_rate}
+            credit={client.credit_balance}
           />
         ))}
       </div>

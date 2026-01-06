@@ -14,13 +14,15 @@ interface LogPaymentButtonProps {
   clientName: string
   currentBalance: number
   currentRate: number // Rate in paise
+  currentCredit: number // Credit balance in paise
 }
 
 export function LogPaymentButton({
   clientId,
   clientName,
   currentBalance,
-  currentRate
+  currentRate,
+  currentCredit
 }: LogPaymentButtonProps) {
   const router = useRouter()
   const [showModal, setShowModal] = useState(false)
@@ -33,6 +35,7 @@ export function LogPaymentButton({
   const [classesAdded, setClassesAdded] = useState('')
   const [paymentDate, setPaymentDate] = useState('')
   const [isManualClasses, setIsManualClasses] = useState(false)
+  const [useCredit, setUseCredit] = useState(false)
 
   // Get today's date in YYYY-MM-DD format
   const getTodayDate = () => {
@@ -40,19 +43,25 @@ export function LogPaymentButton({
     return today.toISOString().split('T')[0]
   }
 
-  // Auto-calculate classes when amount changes
+  // Auto-calculate classes when amount or useCredit changes
   useEffect(() => {
     if (!isManualClasses && amount) {
       const amountNum = parseFloat(amount)
       if (!isNaN(amountNum) && amountNum > 0) {
         const rateInRupees = currentRate / 100
-        const calculatedClasses = Math.floor(amountNum / rateInRupees)
+        const amountInPaise = Math.round(amountNum * 100)
+
+        // Add credit if checkbox is checked
+        const totalAmount = useCredit ? amountInPaise + currentCredit : amountInPaise
+        const totalInRupees = totalAmount / 100
+
+        const calculatedClasses = Math.floor(totalInRupees / rateInRupees)
         setClassesAdded(calculatedClasses.toString())
       } else {
         setClassesAdded('')
       }
     }
-  }, [amount, currentRate, isManualClasses])
+  }, [amount, currentRate, isManualClasses, useCredit, currentCredit])
 
   // Calculate new balance preview
   const getNewBalance = () => {
@@ -63,12 +72,48 @@ export function LogPaymentButton({
     return currentBalance
   }
 
+  // Calculate how much credit will be used
+  const getCreditUsed = () => {
+    if (!useCredit) return 0
+    const amountNum = parseFloat(amount)
+    const classesNum = parseInt(classesAdded)
+    if (!isNaN(amountNum) && !isNaN(classesNum) && amountNum > 0 && classesNum > 0) {
+      const amountInPaise = Math.round(amountNum * 100)
+      const totalCostOfClasses = classesNum * currentRate
+      const creditNeeded = totalCostOfClasses - amountInPaise
+      // Use credit up to what's available and what's needed
+      return Math.max(0, Math.min(creditNeeded, currentCredit))
+    }
+    return 0
+  }
+
+  // Calculate credit remainder (new credit from this payment)
+  const getCreditRemainder = () => {
+    const amountNum = parseFloat(amount)
+    const classesNum = parseInt(classesAdded)
+    if (!isNaN(amountNum) && !isNaN(classesNum) && amountNum > 0 && classesNum > 0) {
+      const amountInPaise = Math.round(amountNum * 100)
+      const creditUsed = getCreditUsed()
+      const totalPaid = amountInPaise + creditUsed
+      const totalCostOfClasses = classesNum * currentRate
+      const remainder = totalPaid - totalCostOfClasses
+      return remainder
+    }
+    return 0
+  }
+
+  // Calculate new credit total
+  const getNewCredit = () => {
+    return currentCredit - getCreditUsed() + getCreditRemainder()
+  }
+
   const handleOpenModal = () => {
     setShowModal(true)
     setPaymentDate(getTodayDate())
     setAmount('')
     setClassesAdded('')
     setIsManualClasses(false)
+    setUseCredit(false)
     setError(null)
   }
 
@@ -106,6 +151,7 @@ export function LogPaymentButton({
     try {
       // Convert amount to paise
       const amountInPaise = Math.round(amountNum * 100)
+      const creditUsed = getCreditUsed()
 
       const response = await fetch(`/api/clients/${clientId}/payments`, {
         method: 'POST',
@@ -116,6 +162,7 @@ export function LogPaymentButton({
           amount: amountInPaise,
           classesAdded: classesNum,
           date: paymentDate,
+          creditUsed: creditUsed,
         }),
       })
 
@@ -197,6 +244,22 @@ export function LogPaymentButton({
                 />
               </div>
 
+              {/* Use Credit Balance Checkbox */}
+              {currentCredit > 0 && (
+                <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <input
+                    type="checkbox"
+                    id="use-credit"
+                    checked={useCredit}
+                    onChange={(e) => setUseCredit(e.target.checked)}
+                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="use-credit" className="flex-1 text-sm font-medium text-gray-900 cursor-pointer">
+                    Use Credit Balance (₹{(currentCredit / 100).toFixed(0)} available)
+                  </label>
+                </div>
+              )}
+
               {/* Classes Added */}
               <div>
                 <label htmlFor="classes" className="block text-sm font-medium text-gray-700 mb-2">
@@ -234,9 +297,14 @@ export function LogPaymentButton({
                     ✎
                   </button>
                 </div>
-                {amount && classesAdded && (
+                {amount && classesAdded && !useCredit && (
                   <p className="mt-2 text-sm text-gray-600">
                     ₹{amount} ÷ ₹{rateInRupees.toFixed(0)} = {classesAdded} classes
+                  </p>
+                )}
+                {amount && classesAdded && useCredit && getCreditUsed() > 0 && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    (₹{amount} + ₹{(getCreditUsed() / 100).toFixed(0)} credit) ÷ ₹{rateInRupees.toFixed(0)} = {classesAdded} classes
                   </p>
                 )}
               </div>
@@ -259,13 +327,33 @@ export function LogPaymentButton({
 
               {/* Balance Preview */}
               {classesAdded && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm font-medium text-blue-900 mb-1">
-                    Balance Preview
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                  <p className="text-sm font-medium text-blue-900">
+                    Payment Summary
                   </p>
-                  <p className="text-lg text-blue-800">
-                    {currentBalance} + {classesAdded} = <strong>{getNewBalance()}</strong> classes
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-sm text-blue-800">
+                      Balance: {currentBalance} + {classesAdded} = <strong>{getNewBalance()}</strong> classes
+                    </p>
+                    {useCredit && getCreditUsed() > 0 && (
+                      <p className="text-sm text-blue-800">
+                        Credit Used: ₹{(getCreditUsed() / 100).toFixed(0)}
+                      </p>
+                    )}
+                    <p className="text-sm text-blue-800">
+                      Credit: ₹{(currentCredit / 100).toFixed(0)} {useCredit && getCreditUsed() > 0 ? `- ₹${(getCreditUsed() / 100).toFixed(0)}` : ''} {getCreditRemainder() > 0 ? `+ ₹${(getCreditRemainder() / 100).toFixed(0)}` : ''} = <strong>₹{(getNewCredit() / 100).toFixed(0)}</strong>
+                    </p>
+                    {useCredit && getCreditUsed() > 0 && (
+                      <p className="text-xs text-blue-600 mt-2">
+                        ✅ Using ₹{(getCreditUsed() / 100).toFixed(0)} credit to complete this payment
+                      </p>
+                    )}
+                    {!useCredit && getCreditRemainder() > 0 && (
+                      <p className="text-xs text-blue-600 mt-2">
+                        💡 Remainder of ₹{(getCreditRemainder() / 100).toFixed(0)} will be added as credit
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 

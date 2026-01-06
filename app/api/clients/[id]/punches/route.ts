@@ -70,7 +70,7 @@ export async function POST(request: Request, context: RouteContext) {
     // Verify client exists and belongs to trainer
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
-      .select('id, balance, trainer_id')
+      .select('id, balance, credit_balance, current_rate, trainer_id')
       .eq('id', clientId)
       .eq('trainer_id', session.trainerId)
       .single()
@@ -84,6 +84,8 @@ export async function POST(request: Request, context: RouteContext) {
 
     const client = clientData as any
     const previousBalance = client.balance
+    const previousCredit = client.credit_balance || 0
+    const currentRate = client.current_rate
 
     // Create punch record
     const { data: punchData, error: punchError } = await supabase
@@ -106,11 +108,24 @@ export async function POST(request: Request, context: RouteContext) {
 
     const punch = punchData as any
 
-    // Decrement client balance by 1
-    const newBalance = previousBalance - 1
+    // Check if we can pay with credit, otherwise use balance
+    let newBalance = previousBalance
+    let newCredit = previousCredit
+    let paidWithCredit = false
+
+    if (previousCredit >= currentRate) {
+      // Pay with credit - deduct from credit, balance stays same
+      newCredit = previousCredit - currentRate
+      paidWithCredit = true
+    } else {
+      // Pay with balance - deduct from balance, credit stays same
+      newBalance = previousBalance - 1
+    }
+
     const updateResult: any = await (supabase.from('clients') as any)
       .update({
         balance: newBalance,
+        credit_balance: newCredit,
         updated_at: new Date().toISOString(),
       })
       .eq('id', clientId)
@@ -141,6 +156,10 @@ export async function POST(request: Request, context: RouteContext) {
         details: {
           punch_date: date,
           punch_id: punch.id,
+          paid_with_credit: paidWithCredit,
+          credit_used: paidWithCredit ? currentRate : 0,
+          previous_credit: previousCredit,
+          new_credit: newCredit,
         },
         previous_balance: previousBalance,
         new_balance: newBalance,
@@ -155,6 +174,9 @@ export async function POST(request: Request, context: RouteContext) {
       punch,
       newBalance,
       previousBalance,
+      newCredit,
+      previousCredit,
+      paidWithCredit,
     }, { status: 201 })
   } catch (error) {
     console.error('Unexpected error in POST /api/clients/[id]/punches:', error)
