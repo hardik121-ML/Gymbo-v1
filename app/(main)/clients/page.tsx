@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ClientList } from '@/components/ClientList'
-import { LogoutButton } from '@/components/LogoutButton'
+import { MobileLayout } from '@/components/MobileLayout'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -37,50 +37,37 @@ export default async function ClientsPage() {
   const clientList = (clients as Client[]) || []
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">Gymbo</h1>
-            <LogoutButton />
-          </div>
-        </div>
-      </header>
+    <MobileLayout title="Gymbo" showLogout={true}>
+      {/* Add Client Button */}
+      <div className="mb-6">
+        <Link href="/clients/new" className="block">
+          <Button className="w-full" size="lg">
+            + Add Client
+          </Button>
+        </Link>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        {/* Add Client Button */}
-        <div className="mb-6">
-          <Link href="/clients/new" className="block">
-            <Button className="w-full" size="lg">
-              + Add Client
-            </Button>
-          </Link>
-        </div>
-
-        {/* Client List or Empty State */}
-        {clientList.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <div className="text-6xl mb-4">👤</div>
-              <h2 className="text-xl font-semibold mb-2">
-                No clients yet
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                Add your first client to start tracking classes and payments
-              </p>
-              <Link href="/clients/new">
-                <Button size="lg">
-                  Add Your First Client
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        ) : (
-          <ClientList clients={clientList} />
-        )}
-      </main>
-    </div>
+      {/* Client List or Empty State */}
+      {clientList.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <div className="text-6xl mb-4">👤</div>
+            <h2 className="text-xl font-semibold mb-2">
+              No clients yet
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Add your first client to start tracking classes and payments
+            </p>
+            <Link href="/clients/new">
+              <Button size="lg">
+                Add Your First Client
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <ClientList clients={clientList} />
+      )}
+    </MobileLayout>
   )
 }

@@ -9,6 +9,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { MobileLayout } from '@/components/MobileLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -104,24 +105,11 @@ export default function NewClientPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/clients"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              ← Back
-            </Link>
-            <h1 className="text-xl font-bold">Add Client</h1>
-          </div>
-        </div>
-      </header>
-
-      {/* Form */}
-      <main className="max-w-3xl mx-auto px-4 py-6">
+    <MobileLayout
+      title="Add Client"
+      showBackButton={true}
+      backHref="/clients"
+    >
         <Card>
           <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -206,7 +194,6 @@ export default function NewClientPage() {
             </form>
           </CardContent>
         </Card>
-      </main>
-    </div>
+    </MobileLayout>
   )
 }

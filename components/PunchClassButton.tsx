@@ -145,7 +145,11 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
               onChange={(e) => setSelectedDate(e.target.value)}
               min={getMinDate()}
               max={getTodayDate()}
-              className="text-lg"
+              className="text-lg cursor-pointer [color-scheme:dark]"
+              style={{
+                colorScheme: 'dark'
+              }}
+              autoFocus
             />
             <p className="text-sm text-muted-foreground">
               Can record classes up to 3 months back

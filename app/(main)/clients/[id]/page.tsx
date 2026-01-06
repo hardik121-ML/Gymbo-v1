@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
+import { MobileLayout } from '@/components/MobileLayout'
 import { PunchClassButton } from '@/components/PunchClassButton'
 import { PunchesListGrouped } from '@/components/PunchesListGrouped'
 import { ClientDetailActions } from '@/components/ClientDetailActions'
@@ -124,24 +125,12 @@ export default async function ClientDetailPage({ params }: PageProps) {
     .slice(0, 5)
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/clients"
-              className="text-muted-foreground hover:text-foreground text-xl"
-            >
-              ←
-            </Link>
-            <h1 className="text-xl font-bold">{client.name}</h1>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-4 py-6 pb-32">
+    <>
+      <MobileLayout
+        title={client.name}
+        showBackButton={true}
+        backHref="/clients"
+      >
         {/* Balance Card */}
         <ClientBalanceCard
           balance={client.balance}
@@ -221,14 +210,14 @@ export default async function ClientDetailPage({ params }: PageProps) {
             </Button>
           </Link>
         </div>
-      </main>
+      </MobileLayout>
 
       {/* Fixed Bottom CTA */}
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t p-4 shadow-lg">
+      <div className="fixed bottom-0 left-0 right-0 bg-card border-t p-4 shadow-lg z-20">
         <div className="max-w-3xl mx-auto">
           <PunchClassButton clientId={client.id} clientName={client.name} />
         </div>
       </div>
-    </div>
+    </>
   )
 }

@@ -333,7 +333,8 @@ export function LogPaymentButton({
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
                 max={getTodayDate()}
-                className="text-lg"
+                className="text-lg [color-scheme:dark]"
+                style={{ colorScheme: 'dark' }}
                 required
               />
             </div>

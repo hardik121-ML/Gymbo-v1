@@ -273,6 +273,8 @@ export function PunchListItem({ id, punchDate, paidWithCredit = false }: PunchLi
               min={getMinDate()}
               max={getMaxDate()}
               disabled={isEditing}
+              className="[color-scheme:dark]"
+              style={{ colorScheme: 'dark' }}
             />
             <p className="text-xs text-muted-foreground">
               Must be within last 3 months

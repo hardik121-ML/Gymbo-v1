@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
+import { MobileLayout } from '@/components/MobileLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
@@ -105,27 +106,11 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href={`/clients/${id}`}
-              className="text-muted-foreground hover:text-foreground text-xl"
-            >
-              ←
-            </Link>
-            <div>
-              <h1 className="text-xl font-bold">Payment History</h1>
-              <p className="text-sm text-muted-foreground">{client.name}</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-4 py-6">
+    <MobileLayout
+      title="Payment History"
+      showBackButton={true}
+      backHref={`/clients/${id}`}
+    >
         {enrichedPayments.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
@@ -207,7 +192,6 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
             </Card>
           </>
         )}
-      </main>
-    </div>
+    </MobileLayout>
   )
 }

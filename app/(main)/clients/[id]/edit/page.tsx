@@ -9,6 +9,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { MobileLayout } from '@/components/MobileLayout'
+import { FormSkeleton } from '@/components/LoadingSkeletons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -138,56 +140,28 @@ export default function EditClientPage({ params }: PageProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
+      <MobileLayout title="Edit Client" showBackButton={true} backHref="/clients">
+        <FormSkeleton />
+      </MobileLayout>
     )
   }
 
   if (error && !formData.name) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="bg-card border-b sticky top-0 z-10">
-          <div className="max-w-3xl mx-auto px-4 py-4">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/clients"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                ← Back
-              </Link>
-              <h1 className="text-xl font-bold">Edit Client</h1>
-            </div>
-          </div>
-        </header>
-        <main className="max-w-3xl mx-auto px-4 py-6">
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        </main>
-      </div>
+      <MobileLayout title="Edit Client" showBackButton={true} backHref="/clients">
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </MobileLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href={`/clients/${clientId}`}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              ← Back
-            </Link>
-            <h1 className="text-xl font-bold">Edit Client</h1>
-          </div>
-        </div>
-      </header>
-
-      {/* Form */}
-      <main className="max-w-3xl mx-auto px-4 py-6">
+    <MobileLayout
+      title="Edit Client"
+      showBackButton={true}
+      backHref={`/clients/${clientId}`}
+    >
         <Card>
           <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -256,7 +230,6 @@ export default function EditClientPage({ params }: PageProps) {
             </form>
           </CardContent>
         </Card>
-      </main>
-    </div>
+    </MobileLayout>
   )
 }

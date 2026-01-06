@@ -12,7 +12,7 @@ Gymbo is a mobile-first Progressive Web App (PWA) for independent personal train
 
 **Tech Stack**:
 - Next.js 16 (App Router) + TypeScript + React 19
-- Tailwind CSS v4 for styling
+- shadcn/ui + Tailwind CSS v4 for styling (dark theme)
 - Supabase (PostgreSQL with custom JWT auth, not Supabase Auth)
 - bcryptjs for password hashing, jsonwebtoken for sessions
 
@@ -23,7 +23,7 @@ Gymbo is a mobile-first Progressive Web App (PWA) for independent personal train
 npm run dev          # Start dev server on http://localhost:3000
 
 # Production
-npm run build        # Build for production
+npm run build        # Build for production (uses --webpack flag due to Next.js 16 compatibility)
 npm run start        # Start production server
 
 # Code Quality
@@ -36,12 +36,14 @@ npx supabase gen types typescript --project-id <project-id> > types/database.typ
 # Note: No test suite currently implemented
 ```
 
-**Note**: The app uses Next.js 16 with Tailwind CSS v4. The root page (`app/page.tsx`) automatically redirects authenticated users to `/clients` and unauthenticated users to `/login`.
+**Important Build Note**: The build command uses `--webpack` flag (`next build --webpack`) because Next.js 16 requires explicit Webpack mode. This is configured in `package.json`. The project also uses Serwist for PWA functionality, which is disabled in development mode.
+
+**Note**: The app uses Next.js 16 with shadcn/ui components and Tailwind CSS v4 in dark mode. The root page (`app/page.tsx`) automatically redirects authenticated users to `/clients` and unauthenticated users to `/login`.
 
 ## Project Documentation
 
 **CLAUDE.md** (this file): Source of truth for architecture and development practices
-**README.md**: Outdated (mentions Next.js 14 and Tamagui instead of Next.js 16 and Tailwind CSS v4)
+**README.md**: Outdated (mentions Next.js 14 and Tamagui instead of Next.js 16, Tailwind CSS v4, and shadcn/ui)
 **prd.md**: Full product requirements document
 **SUPABASE_SETUP.md**: Detailed Supabase setup instructions
 **RUN_MIGRATIONS.md**: Quick migration instructions
@@ -212,11 +214,27 @@ From PRD requirements:
 - Color-coded balance display (red/yellow/green)
 - **Credit balance badge** (GYM-26) - Blue badge showing "💳 Credit: ₹X" when credit > 0
 - **Negative balance alert** - Red warning banner when balance < 0, shows amount owed and "Log Payment" CTA
-- Recent punches list (last 10, newest first) with edit/delete buttons
+- **Grouped punches list** (GYM-10) - Punches grouped by month with pagination (20 per page)
 - Empty state for clients with no punches yet
 - Large "PUNCH CLASS" button (fixed at bottom for thumb reach)
-- Action buttons: Log Payment, View History (active), Export PDF (disabled), Edit Client (disabled)
+- Action buttons: Log Payment, View History (active), Export PDF (disabled), Edit Client (active), Change Rate (active)
 - Server Component that fetches client and punch data
+
+**Edit Client** (`/clients/[id]/edit` - GYM-25):
+- Form to edit client name and phone number
+- Validation: name (required, ≥2 chars), phone (optional, valid Indian mobile)
+- Rate editing is separate (see Change Rate below)
+- Client Component with form state management
+- API: `PATCH /api/clients/[id]`
+
+**Change Rate** (GYM-24):
+- Modal form accessible from client detail page
+- Set new rate with effective date (defaults to today)
+- Validates rate between ₹100-₹10,000
+- Creates entry in rate_history table
+- New rate only applies to future payments (historical payments preserve rate_at_payment)
+- Logs RATE_CHANGE to audit trail
+- API: `PATCH /api/clients/[id]/rate`
 
 **Payment History** (`/clients/[id]/history`):
 - Table view of all payments for a client
@@ -304,10 +322,13 @@ From PRD requirements:
 ### Components Library
 
 **Reusable Components** (`components/`):
+- `MobileLayout` - Mobile-first layout shell with header, back button, and optional logout (GYM-15)
 - `BalanceIndicator` - Visual status dot (red/yellow/green) based on balance
 - `ClientCard` - Client list item with name, balance, rate, credit (GYM-26), clickable
 - `ClientList` - Sortable client list with filter controls
+- `ClientBalanceCard` - Large balance display with color-coded status and credit badge
 - `PunchClassButton` - Primary action button with date picker modal (decreases balance or credit)
+- `PunchesListGrouped` - Punches grouped by month with pagination (GYM-10)
 - `PunchListItem` - Individual punch row with edit (✎) and delete (✕) buttons
 - `LogPaymentButton` - Payment form with "Use Credit Balance" checkbox (GYM-26), increases balance
 - `NegativeBalanceAlert` - Red warning banner for negative balances with CTA
@@ -315,6 +336,16 @@ From PRD requirements:
 - `LogoutButton` - Logout with POST request handling
 - `PhoneInput` - Custom phone input for Indian mobile numbers
 - `PinInput` - 4-digit PIN input with auto-focus
+
+**Loading Skeletons** (`components/LoadingSkeletons.tsx` - GYM-15):
+- `ClientListSkeleton` - Animated skeleton for client list loading state
+- `ClientDetailSkeleton` - Animated skeleton for client detail page
+- `FormSkeleton` - Animated skeleton for form pages
+- `PaymentHistorySkeleton` - Animated skeleton for payment history
+- `PageSkeleton` - Generic page loading skeleton
+
+**Error Boundaries** (GYM-15):
+- `app/error.tsx` - Global error boundary with recovery options and dev mode error details
 
 ### API Endpoints
 
@@ -328,6 +359,23 @@ From PRD requirements:
   - Body: `{ name, phone?, rate }` (rate in rupees, converted to paise)
   - Creates client, rate_history, audit_log
   - Returns: `{ client }`
+
+- `GET /api/clients/[id]` - Get client details
+  - Returns: `{ client }` with all fields
+
+- `PATCH /api/clients/[id]` - Update client details (GYM-25)
+  - Body: `{ name?, phone? }` (at least one required)
+  - Validates: name ≥2 chars, phone must be valid Indian mobile
+  - Logs CLIENT_EDIT to audit trail
+  - Returns: `{ client }`
+
+- `PATCH /api/clients/[id]/rate` - Change client rate (GYM-24)
+  - Body: `{ rate, effectiveDate }` (rate in rupees, converted to paise)
+  - Validates: rate ₹100-₹10,000, valid date
+  - Creates entry in rate_history table
+  - Updates client.current_rate
+  - Logs RATE_CHANGE to audit trail
+  - Returns: `{ client, rateHistory }`
 
 **Punches** (`app/api/clients/[id]/punches/` and `app/api/punches/[id]/`):
 - `POST /api/clients/[id]/punches` - Record a class (GYM-26 credit support)
@@ -376,6 +424,67 @@ From PRD requirements:
                            request.nextUrl.pathname.startsWith('/your-page')
    ```
 3. Use `getSession()` from `lib/auth/session.ts` in Server Components to get current trainer
+4. Wrap content in `MobileLayout` component for consistent UI (see below)
+
+### Using MobileLayout Component (GYM-15)
+
+All pages should use the `MobileLayout` component for consistent navigation, headers, and mobile-first responsive design.
+
+**Basic Usage**:
+```typescript
+import { MobileLayout } from '@/components/MobileLayout'
+
+export default function YourPage() {
+  return (
+    <MobileLayout
+      title="Page Title"
+      showBackButton={true}
+      backHref="/previous-page"
+    >
+      {/* Your page content here */}
+    </MobileLayout>
+  )
+}
+```
+
+**Props**:
+- `title` (optional) - Page title shown in header
+- `showBackButton` (optional) - Show back arrow button
+- `backHref` (optional) - URL for back button navigation
+- `showLogout` (optional) - Show logout button in header
+- `headerAction` (optional) - Custom React node for additional header actions
+- `children` - Page content
+
+**Loading States**:
+For Client Components with loading states, use skeleton components:
+```typescript
+import { FormSkeleton } from '@/components/LoadingSkeletons'
+
+if (isLoading) {
+  return (
+    <MobileLayout title="Your Page" showBackButton={true} backHref="/back">
+      <FormSkeleton />
+    </MobileLayout>
+  )
+}
+```
+
+Available skeletons: `ClientListSkeleton`, `ClientDetailSkeleton`, `FormSkeleton`, `PaymentHistorySkeleton`, `PageSkeleton`
+
+**Error States**:
+```typescript
+import { Alert, AlertDescription } from '@/components/ui/alert'
+
+if (error) {
+  return (
+    <MobileLayout title="Your Page" showBackButton={true} backHref="/back">
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    </MobileLayout>
+  )
+}
+```
 
 ### Adding a New API Route
 
@@ -441,20 +550,30 @@ See `prd.md` for full product requirements. Key points:
 **MVP Critical Path**:
 1. Foundation (setup, database) ✅ Complete
 2. Auth (phone/PIN) ✅ Complete
-3. Clients (list, add, detail) ✅ Complete
+3. Clients (list, add, detail, edit) ✅ Complete
    - GYM-14: Client list with sorting and balance indicators
    - GYM-13: Add client form with validation
    - GYM-12: Client detail page
+   - GYM-25: Edit client details (name, phone)
+   - GYM-24: Change client rate with history tracking
 4. Punch tracking ✅ Complete
    - GYM-11: Punch class action with date picker
    - GYM-8: Remove punch (soft delete with undo)
    - GYM-9: Edit punch date
+   - GYM-10: Month grouping and pagination for punches
 5. Payment logging ✅ Complete
    - GYM-6: Log payment form with auto-calculation
    - GYM-4: Payment history view
+   - GYM-26: Credit balance tracking with explicit usage
 6. Balance indicators ✅ Complete
    - GYM-1: Negative balance alert
-   - Integrated into client list/detail with red/yellow/green indicators
+   - GYM-2: Visual balance indicators (red/yellow/green)
+   - GYM-3: Balance calculation utilities
+   - GYM-5: Balance animation with smooth count up/down
+7. UI Framework ✅ Complete
+   - GYM-23: Migration to shadcn/ui with dark theme
+   - GYM-15: Mobile layout shell with consistent navigation, back buttons, loading skeletons, and error boundaries
+   - GYM-16: PWA configuration with install prompt and icons
 
 **Out of Scope**:
 - Scheduling/calendar
@@ -483,7 +602,15 @@ See `prd.md` for full product requirements. Key points:
 
 - **Supabase TypeScript types**: Currently using placeholder types. Real types need to be generated from schema using `npx supabase gen types`. Until then, use `as any` assertions when accessing query results to avoid `never` type errors.
 - **No test suite**: No tests currently implemented (unit, integration, or e2e)
-- **README.md outdated**: Still mentions Next.js 14 and Tamagui instead of Next.js 16 and Tailwind CSS v4
+- **README.md outdated**: Still mentions Next.js 14 and Tamagui instead of Next.js 16, Tailwind CSS v4, and shadcn/ui
+- **PWA Configuration** (GYM-16 - ✅ Complete): Progressive Web App is fully configured and functional
+  - PWA icons (192x192, 512x512, Apple touch icon) in public/ folder
+  - Manifest.json configured with dark theme colors (#020817)
+  - Service worker configured via Serwist (@serwist/next) in next.config.ts
+  - Install prompt component with beforeinstallprompt event handling
+  - PWA is disabled in development mode, enabled in production
+- **Next.js 16 metadata warnings**: ✅ Fixed - viewport and themeColor moved to separate viewport export
+- **Dialog accessibility**: Some shadcn Dialog components missing `DialogDescription` for screen readers
 - Supabase Auth is completely unused (we built custom JWT auth per PRD requirements)
 - Consider removing `@supabase/ssr` dependency since we don't use Supabase Auth
 - Rate limiting not yet implemented on auth endpoints
@@ -493,20 +620,33 @@ See `prd.md` for full product requirements. Key points:
 
 ## UI Framework
 
-**Current**: shadcn/ui + Tailwind CSS v4
+**Current**: shadcn/ui + Tailwind CSS v4 (Dark Theme)
 
-**shadcn/ui Setup** (GYM-23):
+**shadcn/ui Setup** (GYM-23 - Completed):
 - Chosen after Tamagui proved incompatible with Next.js 16 TypeScript
 - Perfect integration with existing Tailwind CSS v4
 - Component library: Button, Input, Label, Card, Alert, Badge, Dialog, Select
 - Components copied into codebase (`components/ui/`) - no external dependencies
-- Configured with neutral color scheme and default Tailwind tokens
+- Dark theme enabled globally via `className="dark"` on `<html>` element in `app/layout.tsx`
+- All colors use semantic tokens (bg-background, text-foreground, text-muted-foreground, etc.)
+- CSS variables defined in `app/globals.css` using oklch color space
 
-**Migration Status** (Partially Complete):
-- ✅ Auth pages (login, signup) - using Card, Button, Alert
-- ✅ Client list - using Card, Button, Badge
-- ✅ Client forms (add, edit) - using Input, Label, Card, Alert, Button
-- 🔄 In Progress: Client detail, payment forms, punch components, change rate form, payment history
+**Component Usage Patterns**:
+- **Buttons**: Use `<Button>` with variants: `default` (primary), `outline`, `destructive`, `ghost`, `secondary`
+- **Forms**: Use `<Input>` + `<Label>` for all form fields
+- **Modals**: Use `<Dialog>` + `<DialogContent>` + `<DialogHeader>` + `<DialogTitle>` (and optionally `<DialogDescription>`)
+- **Alerts**: Use `<Alert>` + `<AlertDescription>` with variants: `default` or `destructive`
+- **Cards**: Use `<Card>` + `<CardContent>` for containers
+- **Badges**: Use `<Badge>` with custom className for colored badges (e.g., credit balance)
+
+**Migration Status** (✅ Complete):
+- ✅ Auth pages (login, signup) - Card, Button, Alert
+- ✅ Client list - Card, Button, Badge
+- ✅ Client detail - Card, Button, Alert
+- ✅ Client forms (add, edit) - Input, Label, Card, Alert, Button
+- ✅ Change rate form - Input, Label, Card, Alert, Button
+- ✅ Payment history - Card, Button with dark theme table
+- ✅ All components - LogPaymentButton, PunchClassButton, ClientBalanceCard, PunchesListGrouped, PunchListItem, LogoutButton, NegativeBalanceAlert
 
 **Why shadcn over Tamagui**:
 - Tamagui had persistent TypeScript prop compatibility issues with Next.js 16
@@ -514,3 +654,10 @@ See `prd.md` for full product requirements. Key points:
 - Zero runtime dependencies (components are copied, not imported from npm)
 - Excellent accessibility via Radix UI primitives
 - Better suited for web-only PWA (Tamagui targets React Native cross-platform)
+
+**Dark Theme Implementation**:
+- Dark mode is the default and only theme (no light mode toggle)
+- All pages and components use semantic color tokens that adapt to dark theme
+- Color palette defined in `:root .dark` selector in globals.css
+- Never use hard-coded colors (bg-white, text-gray-900, etc.) - always use semantic tokens
+- Example: Use `bg-background` instead of `bg-gray-900`, `text-muted-foreground` instead of `text-gray-500`
