@@ -2,65 +2,57 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PhoneInput } from '@/components/auth/PhoneInput'
-import { PinInput } from '@/components/auth/PinInput'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
-type SignupStep = 'phone' | 'create-pin' | 'confirm-pin'
-
 export default function SignupPage() {
   const router = useRouter()
-  const [step, setStep] = useState<SignupStep>('phone')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [pin, setPin] = useState('')
-  const [confirmPin, setConfirmPin] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  const handlePhoneSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    // Validate phone number
-    const digits = phone.replace(/\D/g, '')
-    if (digits.length !== 10) {
-      setError('Please enter a valid 10-digit phone number')
+    // Validate name
+    if (name.trim().length < 2) {
+      setError('Name must be at least 2 characters')
       return
     }
 
-    if (!['6', '7', '8', '9'].includes(digits[0])) {
-      setError('Please enter a valid Indian mobile number')
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address')
       return
     }
 
-    // Move to PIN creation step
-    setStep('create-pin')
-  }
+    // Validate phone (optional but if provided must be valid Indian mobile)
+    if (phone && phone.trim().length > 0) {
+      const phoneRegex = /^[6-9]\d{9}$/
+      if (!phoneRegex.test(phone.trim())) {
+        setError('Please enter a valid 10-digit Indian mobile number')
+        return
+      }
+    }
 
-  const handlePinSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-
-    // Validate PIN
-    if (pin.length !== 4) {
-      setError('PIN must be 4 digits')
+    // Validate password
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
       return
     }
 
-    // Move to confirm PIN step
-    setStep('confirm-pin')
-  }
-
-  const handleConfirmPinSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-
-    // Validate PIN match
-    if (pin !== confirmPin) {
-      setError('PINs do not match')
-      setConfirmPin('')
+    // Validate password match
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
       return
     }
 
@@ -74,8 +66,10 @@ export default function SignupPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          phone: `+91${phone.replace(/\D/g, '')}`,
-          pin,
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim() || null,
+          password,
         }),
       })
 
@@ -87,20 +81,10 @@ export default function SignupPage() {
 
       // Redirect to main app (client list)
       router.push('/clients')
+      router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create account')
       setIsLoading(false)
-    }
-  }
-
-  const handleBack = () => {
-    setError('')
-    if (step === 'confirm-pin') {
-      setConfirmPin('')
-      setStep('create-pin')
-    } else if (step === 'create-pin') {
-      setPin('')
-      setStep('phone')
     }
   }
 
@@ -110,117 +94,109 @@ export default function SignupPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-4xl mb-2">Gymbo</CardTitle>
           <CardDescription className="text-lg">
-            {step === 'phone' && 'Create your account'}
-            {step === 'create-pin' && 'Secure your account'}
-            {step === 'confirm-pin' && 'Confirm your PIN'}
+            Create your account
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-6">
-          {/* Progress Indicator */}
-          <div className="flex justify-center gap-2">
-            <div className={`h-2 w-16 rounded-full ${step === 'phone' ? 'bg-primary' : 'bg-primary'}`} />
-            <div className={`h-2 w-16 rounded-full ${step === 'create-pin' || step === 'confirm-pin' ? 'bg-primary' : 'bg-muted'}`} />
-            <div className={`h-2 w-16 rounded-full ${step === 'confirm-pin' ? 'bg-primary' : 'bg-muted'}`} />
-          </div>
-
+        <CardContent>
           {/* Error Message */}
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="mb-6">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          {/* Phone Step */}
-          {step === 'phone' && (
-            <form onSubmit={handlePhoneSubmit} className="space-y-6">
-              <PhoneInput
-                value={phone}
-                onChange={setPhone}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Name Field */}
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Enter your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+
+            {/* Email Field */}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
+            </div>
 
-              <Button
-                type="submit"
-                disabled={phone.replace(/\D/g, '').length !== 10}
-                className="w-full"
-                size="lg"
-              >
-                Continue
-              </Button>
-
-              <p className="text-center text-sm text-muted-foreground">
-                Already have an account?{' '}
-                <a href="/login" className="text-primary hover:underline font-medium">
-                  Log in
-                </a>
+            {/* Phone Field */}
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number (Optional)</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="10-digit mobile number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                maxLength={10}
+                inputMode="numeric"
+              />
+              <p className="text-xs text-muted-foreground">
+                Indian mobile number (starts with 6-9)
               </p>
-            </form>
-          )}
+            </div>
 
-          {/* Create PIN Step */}
-          {step === 'create-pin' && (
-            <form onSubmit={handlePinSubmit} className="space-y-6">
-              <PinInput
-                value={pin}
-                onChange={setPin}
-                label="Create PIN"
+            {/* Password Field */}
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
               />
+            </div>
 
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  onClick={handleBack}
-                  variant="outline"
-                  size="lg"
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={pin.length !== 4}
-                  size="lg"
-                  className="flex-1"
-                >
-                  Continue
-                </Button>
-              </div>
-            </form>
-          )}
-
-          {/* Confirm PIN Step */}
-          {step === 'confirm-pin' && (
-            <form onSubmit={handleConfirmPinSubmit} className="space-y-6">
-              <PinInput
-                value={confirmPin}
-                onChange={setConfirmPin}
-                error={error}
-                confirmMode
+            {/* Confirm Password Field */}
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Re-enter your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
               />
+            </div>
 
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  onClick={handleBack}
-                  disabled={isLoading}
-                  variant="outline"
-                  size="lg"
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={confirmPin.length !== 4 || isLoading}
-                  size="lg"
-                  className="flex-1"
-                >
-                  {isLoading ? 'Creating account...' : 'Create Account'}
-                </Button>
-              </div>
-            </form>
-          )}
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              disabled={isLoading || !name || !email || !password || !confirmPassword}
+              className="w-full"
+              size="lg"
+            >
+              {isLoading ? 'Creating account...' : 'Create Account'}
+            </Button>
+
+            {/* Login Link */}
+            <p className="text-center text-sm text-muted-foreground">
+              Already have an account?{' '}
+              <a href="/login" className="text-primary hover:underline font-medium">
+                Log in
+              </a>
+            </p>
+          </form>
         </CardContent>
       </Card>
     </div>

@@ -6,20 +6,21 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth/session'
+import { createClient } from '@/lib/supabase/server'
 import { verifyAllBalances } from '@/lib/balance/calculate'
 
 // GET /api/balance/verify-all - Verify all client balances
 export async function GET() {
   try {
     // Check authentication
-    const session = await getSession()
-    if (!session) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify all balances for this trainer
-    const mismatches = await verifyAllBalances(session.trainerId)
+    const mismatches = await verifyAllBalances(user.id)
 
     return NextResponse.json({
       totalClientsChecked: mismatches.length > 0 ? 'some' : 'all',

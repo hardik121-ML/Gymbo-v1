@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/auth/session'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { MobileLayout } from '@/components/MobileLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,20 +12,20 @@ interface PageProps {
 export default async function PaymentHistoryPage({ params }: PageProps) {
   const { id } = await params
 
-  // Get current session
-  const session = await getSession()
-  if (!session) {
+  // Get current user from Supabase Auth
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
     redirect('/login')
   }
 
-  const supabase = createAdminClient()
-
-  // Fetch client details
+  // Fetch client details (RLS automatically filters by user.id)
   const { data: clientData, error: clientError } = await supabase
     .from('clients')
     .select('id, name')
     .eq('id', id)
-    .eq('trainer_id', session.trainerId)
+    .eq('trainer_id', user.id)
     .single()
 
   if (clientError || !clientData) {

@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/auth/session'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { ClientList } from '@/components/ClientList'
 import { MobileLayout } from '@/components/MobileLayout'
 import Link from 'next/link'
@@ -16,18 +15,19 @@ interface Client {
 }
 
 export default async function ClientsPage() {
-  // Get current session
-  const session = await getSession()
-  if (!session) {
+  // Get current user from Supabase Auth
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
     redirect('/login')
   }
 
-  // Fetch clients for this trainer
-  const supabase = createAdminClient()
+  // Fetch clients for this trainer (RLS automatically filters by user.id)
   const { data: clients, error } = await supabase
     .from('clients')
     .select('id, name, balance, current_rate, updated_at')
-    .eq('trainer_id', session.trainerId)
+    .eq('trainer_id', user.id)
     .order('updated_at', { ascending: false })
 
   if (error) {

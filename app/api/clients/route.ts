@@ -5,15 +5,16 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth/session'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 
 // POST /api/clients - Create a new client
 export async function POST(request: Request) {
   try {
     // Check authentication
-    const session = await getSession()
-    if (!session) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -47,16 +48,14 @@ export async function POST(request: Request) {
       }
     }
 
-    const supabase = createAdminClient()
-
     // Convert rate from rupees to paise
     const rateInPaise = rate * 100
 
-    // Create client
+    // Create client (RLS automatically sets trainer_id)
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .insert({
-        trainer_id: session.trainerId,
+        trainer_id: user.id,
         name: name.trim(),
         phone: phone?.trim() || null,
         current_rate: rateInPaise,
@@ -91,7 +90,7 @@ export async function POST(request: Request) {
     const { error: auditError } = await supabase
       .from('audit_log')
       .insert({
-        trainer_id: session.trainerId,
+        trainer_id: user.id,
         client_id: client.id,
         action: 'CLIENT_ADD',
         details: {

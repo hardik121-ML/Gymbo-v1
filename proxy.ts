@@ -1,28 +1,59 @@
 // ============================================================================
-// Next.js Proxy - Custom Auth
+// Next.js Proxy - Supabase Auth
 // ============================================================================
 // This proxy checks authentication and redirects accordingly
 // ============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server'
-import { getSessionFromRequest } from '@/lib/auth/session'
+import { createServerClient } from '@supabase/ssr'
 
 export async function proxy(request: NextRequest) {
-  const session = getSessionFromRequest(request)
+  let supabaseResponse = NextResponse.next({
+    request,
+  })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            request.cookies.set(name, value)
+          )
+          supabaseResponse = NextResponse.next({
+            request,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  // Get current user session
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   const isAuthPage = request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup'
   const isProtectedPage = request.nextUrl.pathname.startsWith('/clients')
 
   // Redirect authenticated users away from auth pages
-  if (session && isAuthPage) {
+  if (user && isAuthPage) {
     return NextResponse.redirect(new URL('/clients', request.url))
   }
 
   // Redirect unauthenticated users to login
-  if (!session && isProtectedPage) {
+  if (!user && isProtectedPage) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  return NextResponse.next()
+  return supabaseResponse
 }
 
 export const config = {

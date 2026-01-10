@@ -5,8 +5,7 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth/session'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -18,8 +17,9 @@ export async function POST(request: Request, context: RouteContext) {
     const { id: clientId } = await context.params
 
     // Check authentication
-    const session = await getSession()
-    if (!session) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -68,14 +68,12 @@ export async function POST(request: Request, context: RouteContext) {
       )
     }
 
-    const supabase = createAdminClient()
-
     // Verify client exists and belongs to trainer
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
       .select('id, balance, credit_balance, trainer_id, current_rate')
       .eq('id', clientId)
-      .eq('trainer_id', session.trainerId)
+      .eq('trainer_id', user.id)
       .single()
 
     if (clientError || !clientData) {
@@ -155,7 +153,7 @@ export async function POST(request: Request, context: RouteContext) {
     const { error: auditError } = await supabase
       .from('audit_log')
       .insert({
-        trainer_id: session.trainerId,
+        trainer_id: user.id,
         client_id: clientId,
         action: 'PAYMENT_ADD',
         details: {

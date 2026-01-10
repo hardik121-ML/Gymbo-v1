@@ -13,8 +13,47 @@ Gymbo is a mobile-first Progressive Web App (PWA) for independent personal train
 **Tech Stack**:
 - Next.js 16 (App Router) + TypeScript + React 19
 - shadcn/ui + Tailwind CSS v4 for styling (dark theme)
-- Supabase (PostgreSQL with custom JWT auth, not Supabase Auth)
-- bcryptjs for password hashing, jsonwebtoken for sessions
+- Supabase (PostgreSQL + Supabase Auth for email/password authentication)
+- Serwist for PWA/service worker functionality
+
+## Production Deployment
+
+**Status**: ✅ **LIVE IN PRODUCTION**
+
+**Production URL**: https://gymbo-v1.vercel.app
+
+**Deployment Platform**: Vercel
+- Auto-deploys from `main` branch
+- Preview deployments on feature branches
+- Environment variables configured in Vercel dashboard
+
+**Environment Variables** (Production):
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Public anon key (safe for client)
+- `SUPABASE_SERVICE_ROLE_KEY` - Service role key (server-side only, SECRET, rarely needed)
+
+**Security Notes**:
+- ⚠️ Never commit production secrets to git
+- ⚠️ Local secrets stay in `.env.local` (gitignored)
+- ⚠️ Production secrets managed via Vercel dashboard only
+- ⚠️ Sessions managed by Supabase Auth (no custom JWT secret needed)
+
+**Deployment History**:
+- **2026-01-11**: Audit log architecture refactor
+  - Fixed audit_log RLS policy to allow INSERT operations (migration 006)
+  - Removed duplicate audit triggers to prevent double-logging (migration 007)
+  - All audit logs now created by API code with full credit tracking details
+  - Rate changes still use database trigger (only non-duplicated trigger)
+- **2026-01-10**: Migration to Supabase Auth
+  - Replaced custom JWT auth with Supabase Auth (email/password)
+  - Added optional phone number collection during signup
+  - Removed bcryptjs and jsonwebtoken dependencies
+  - Updated all authentication flows and RLS policies
+- **2026-01-06**: Initial production deployment
+  - Complete shadcn/ui migration
+  - PWA configuration complete
+  - TypeScript fully type-safe
+  - All MVP features implemented
 
 ## Development Commands
 
@@ -43,40 +82,48 @@ npx supabase gen types typescript --project-id <project-id> > types/database.typ
 ## Project Documentation
 
 **CLAUDE.md** (this file): Source of truth for architecture and development practices
-**README.md**: Outdated (mentions Next.js 14 and Tamagui instead of Next.js 16, Tailwind CSS v4, and shadcn/ui)
+**README.md**: Production-ready overview with getting started instructions
 **prd.md**: Full product requirements document
 **SUPABASE_SETUP.md**: Detailed Supabase setup instructions
 **RUN_MIGRATIONS.md**: Quick migration instructions
 
 ## Architecture
 
-### Authentication System (Custom JWT - No Supabase Auth)
+### Authentication System (Supabase Auth)
 
-**Important**: We do NOT use Supabase Auth. We built a custom JWT-based authentication system because the PRD requires zero-cost auth with no external provider.
+**Important**: We use Supabase Auth with email/password authentication. This is included free in Supabase's free tier (up to 50,000 MAU) and meets the PRD's zero-cost requirement.
 
 **Flow**:
-1. Trainer signs up with phone number + 4-digit PIN
-2. PIN is hashed with bcryptjs (10 rounds) and stored in `trainers` table
-3. On login, we verify the PIN and create a JWT session cookie (30-day expiration)
-4. Sessions are validated in `proxy.ts` (Next.js 16 proxy, not middleware)
+1. Trainer signs up with name + email + password (6+ characters) + optional phone
+2. Supabase Auth creates user in `auth.users` table
+3. We create matching record in `trainers` table with same ID
+4. Sessions are managed automatically by Supabase (cookies, token refresh, etc.)
+5. Sessions are validated in `proxy.ts` (Next.js 16 proxy)
 
 **Key Files**:
-- `lib/auth/session.ts` - JWT session management (create, get, delete sessions)
-- `lib/supabase/admin.ts` - Admin client that bypasses RLS for signup/login operations
-- `proxy.ts` - Next.js 16 proxy (not middleware) that checks JWT sessions and redirects
-- `app/api/auth/signup/route.ts` - Signup endpoint
-- `app/api/auth/login/route.ts` - Login endpoint
-- `app/api/auth/logout/route.ts` - Logout endpoint
+- `lib/supabase/server.ts` - Server-side Supabase client for auth and queries
+- `proxy.ts` - Next.js 16 proxy that checks Supabase Auth sessions and redirects
+- `app/api/auth/signup/route.ts` - Signup endpoint (creates auth user + trainer record)
+- `app/api/auth/login/route.ts` - Login endpoint (uses Supabase signInWithPassword)
+- `app/api/auth/logout/route.ts` - Logout endpoint (uses Supabase signOut)
 
-**Why Admin Client?**
-Row-Level Security (RLS) blocks unauthenticated database access. During signup/login, there's no session yet, so we use the admin client (with `SUPABASE_SERVICE_ROLE_KEY`) to bypass RLS. This is secure because it only runs server-side in controlled API routes.
+**Data Storage**:
+- Authentication credentials: Stored in `auth.users` (managed by Supabase)
+- Trainer profile: Stored in `trainers` table (name, phone)
+- `trainers.id` = `auth.users.id` (linked)
+
+**Why Supabase Auth?**
+- Battle-tested security (password hashing, token management, session refresh)
+- Zero cost (included in free tier)
+- Less code to maintain (no custom JWT logic)
+- RLS works automatically with `auth.uid()`
 
 ### Database Architecture
 
 **Supabase PostgreSQL with Row-Level Security (RLS)**
 
 Core tables:
-- `trainers` - Trainer accounts (phone, pin_hash)
+- `trainers` - Trainer profiles (id matches auth.users.id, name, phone optional)
 - `clients` - Clients belonging to trainers (name, phone, current_rate, balance, credit_balance)
 - `punches` - Class records (client_id, punch_date, is_deleted for soft delete)
 - `payments` - Payment records (client_id, amount, classes_added, rate_at_payment)
@@ -98,28 +145,61 @@ Core tables:
 **RLS Policies**: All tables enforce trainer isolation - trainers can only access their own data via `trainer_id` foreign keys.
 
 **Migrations**: Located in `supabase/migrations/`. Run manually via Supabase SQL Editor or `npx supabase db push`.
+- `001_create_core_tables.sql` - Core tables (trainers, clients, punches, payments)
+- `002_create_audit_and_rate_history.sql` - Audit log and rate history tables with triggers
+- `003_enable_rls_policies.sql` - Row-Level Security policies
+- `004_add_credit_balance.sql` - Credit balance system (GYM-26)
+- `005_migrate_to_supabase_auth.sql` - Supabase Auth migration (links trainers to auth.users)
+- `006_fix_audit_log_rls.sql` - Add INSERT policy for audit_log (fixes RLS violation)
+- `007_remove_duplicate_triggers.sql` - Remove duplicate audit triggers (keeps API code logging only)
+
+### Audit Log Architecture
+
+**Important**: The audit log system was refactored to eliminate duplicate entries and add credit tracking.
+
+**Current Implementation** (as of migrations 006 & 007):
+- **API Code Logging**: All audit logs are created manually in API routes via `supabase.from('audit_log').insert(...)`
+- **Database Trigger**: Only `trigger_log_rate_change` remains (fires on `rate_history` INSERT)
+- **No Duplicates**: Removed triggers for punches, payments, and punch deletions to prevent double-logging
+
+**Audit Log Actions**:
+- `PUNCH_ADD` - API code logs with: punch_id, punch_date, paid_with_credit, credit_used, previous_credit, new_credit, balance changes
+- `PUNCH_EDIT` - API code logs with: punch_id, old_date, new_date (no balance change)
+- `PUNCH_REMOVE` - API code logs with: punch_id, punch_date, balance changes
+- `PAYMENT_ADD` - API code logs with: payment_id, amount, classes_added, rate_at_payment, payment_date, credit_used, credit_added, previous_credit, new_credit, balance changes
+- `RATE_CHANGE` - Database trigger logs with: rate_history_id, new_rate, effective_date (no balance change)
+- `CLIENT_UPDATE` - API code logs with: previous/updated objects containing name/phone (no balance change)
+
+**Why API Code Over Triggers?**
+- Credit tracking (GYM-26) requires detailed calculations done in application logic
+- Triggers can't access the context needed for credit_used, credit_added, paid_with_credit fields
+- API code has full transaction context and can log more detailed information
+- Easier to debug and maintain audit logic in TypeScript than in PL/pgSQL
+
+**RLS Policy**: Migration 006 added INSERT policy allowing trainers to insert their own audit logs (`trainer_id = auth.uid()`)
 
 ### Supabase Client Strategy
 
-**Three types of clients**:
+**Two types of clients**:
 
-1. **Admin Client** (`lib/supabase/admin.ts`):
-   - Uses `SUPABASE_SERVICE_ROLE_KEY`
-   - Bypasses RLS
-   - Server-side only (never expose to browser)
-   - Used for: signup, login (when no session exists yet)
-
-2. **Server Client** (`lib/supabase/server.ts`):
+1. **Server Client** (`lib/supabase/server.ts`):
    - Uses `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - Respects RLS
-   - For Server Components and API routes
-   - Currently not heavily used since we use custom JWT auth
+   - Respects RLS (automatically filters by `auth.uid()`)
+   - For Server Components, API routes, and auth operations
+   - Handles authentication via `supabase.auth.getUser()`
+   - Primary client for all server-side operations
 
-3. **Browser Client** (`lib/supabase/client.ts`):
+2. **Browser Client** (`lib/supabase/client.ts`):
    - Uses `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - Respects RLS
    - For Client Components
-   - Will be used for data fetching after auth is implemented
+   - Used for real-time subscriptions and client-side mutations
+
+**Admin Client** (`lib/supabase/admin.ts`):
+- Still exists but rarely needed
+- Uses `SUPABASE_SERVICE_ROLE_KEY` to bypass RLS
+- Only use for administrative operations that need to bypass security
+- NOT used for normal auth or data operations
 
 ### Next.js 16 Routing
 
@@ -128,11 +208,12 @@ Core tables:
 - `app/(main)/` - Protected pages requiring authentication (clients, etc.)
 - `app/page.tsx` - Root page that redirects to `/clients` (authenticated) or `/login` (unauthenticated)
 
-**Proxy vs Middleware**: Next.js 16 uses `proxy.ts` instead of the older `middleware.ts`. The proxy function:
-- Checks JWT sessions via `getSessionFromRequest()` from `lib/auth/session.ts`
+**Proxy vs Middleware**: Next.js 16 uses `proxy.ts` (at the project root) instead of the older `middleware.ts` from previous Next.js versions. This is the Next.js 16 way of intercepting requests. The proxy function:
+- Checks Supabase Auth sessions via `supabase.auth.getUser()`
 - Redirects authenticated users away from auth pages (`/login`, `/signup`) to `/clients`
 - Redirects unauthenticated users from protected pages (`/clients`) to `/login`
 - Uses a matcher config to exclude static files and images from processing
+- Properly handles Supabase cookie management for session persistence
 
 ### Data Model: Currency
 
@@ -146,7 +227,7 @@ Core tables:
 **Status**: ✅ **Fully Type-Safe** - Proper Supabase TypeScript types have been generated from the database schema.
 
 The `types/database.types.ts` file contains complete type definitions for all database tables, including:
-- `trainers` - Trainer accounts with phone/PIN authentication
+- `trainers` - Trainer accounts (linked to Supabase Auth)
 - `clients` - Client records with balance, rate, and credit tracking
 - `punches` - Class attendance records
 - `payments` - Payment history with rate snapshots
@@ -172,16 +253,15 @@ Required in `.env.local`:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
-SUPABASE_SERVICE_ROLE_KEY=eyJxxx...  # Server-side only, never expose to client
-JWT_SECRET=your-secret-key-here      # For session JWT signing (change in production!)
+SUPABASE_SERVICE_ROLE_KEY=eyJxxx...  # Server-side only, rarely needed with Supabase Auth
 ```
 
 **How to get Supabase credentials**: See `SUPABASE_SETUP.md` for complete setup instructions.
 
 **Security**:
-- `SUPABASE_SERVICE_ROLE_KEY` bypasses all RLS - NEVER use in client-side code, only in API routes
-- `JWT_SECRET` must be changed in production (generate with `openssl rand -base64 32`)
-- Default JWT_SECRET in code is for development only
+- `SUPABASE_SERVICE_ROLE_KEY` bypasses all RLS - rarely needed with Supabase Auth
+- Sessions are managed automatically by Supabase (cookies, tokens, refresh)
+- No custom JWT secret needed - Supabase handles all auth token signing
 
 ## Mobile-First UI Principles
 
@@ -336,8 +416,6 @@ From PRD requirements:
 - `NegativeBalanceAlert` - Red warning banner for negative balances with CTA
 - `ClientDetailActions` - Wrapper that manages alert and payment button interaction
 - `LogoutButton` - Logout with POST request handling
-- `PhoneInput` - Custom phone input for Indian mobile numbers
-- `PinInput` - 4-digit PIN input with auto-focus
 
 **Loading Skeletons** (`components/LoadingSkeletons.tsx` - GYM-15):
 - `ClientListSkeleton` - Animated skeleton for client list loading state
@@ -352,9 +430,23 @@ From PRD requirements:
 ### API Endpoints
 
 **Authentication** (`app/api/auth/`):
-- `POST /api/auth/signup` - Create trainer account (phone + PIN)
-- `POST /api/auth/login` - Login and create session
-- `POST /api/auth/logout` - Delete session (must be POST!)
+- `POST /api/auth/signup` - Create trainer account
+  - Body: `{ name, email, phone?, password }`
+  - Creates Supabase Auth user + trainers record
+  - Phone is optional (stored in trainers.phone if provided)
+  - Password minimum 6 characters
+  - Returns: `{ user: { id, email, name } }`
+
+- `POST /api/auth/login` - Login with email/password
+  - Body: `{ email, password }`
+  - Uses Supabase Auth signInWithPassword
+  - Session managed automatically by Supabase
+  - Returns: `{ user: { id, email, name } }`
+
+- `POST /api/auth/logout` - Logout (must be POST!)
+  - Uses Supabase Auth signOut
+  - Clears session cookies
+  - Returns: `{ success: true }`
 
 **Clients** (`app/api/clients/`):
 - `POST /api/clients` - Create new client
@@ -425,7 +517,19 @@ From PRD requirements:
    const isProtectedPage = request.nextUrl.pathname.startsWith('/clients') ||
                            request.nextUrl.pathname.startsWith('/your-page')
    ```
-3. Use `getSession()` from `lib/auth/session.ts` in Server Components to get current trainer
+3. Get authenticated user in Server Components:
+   ```typescript
+   import { createClient } from '@/lib/supabase/server'
+
+   const supabase = await createClient()
+   const { data: { user } } = await supabase.auth.getUser()
+
+   if (!user) {
+     redirect('/login')
+   }
+
+   // Use user.id as trainer_id for queries
+   ```
 4. Wrap content in `MobileLayout` component for consistent UI (see below)
 
 ### Using MobileLayout Component (GYM-15)
@@ -492,20 +596,21 @@ if (error) {
 
 ```typescript
 // app/api/your-route/route.ts
-import { createAdminClient } from '@/lib/supabase/admin'
-import { getSession } from '@/lib/auth/session'
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
-  // Get current session
-  const session = await getSession()
-  if (!session) {
+  // Get current authenticated user
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Use admin client for database operations
-  const supabase = createAdminClient()
-
-  // Your logic here - session.trainerId is the authenticated trainer
+  // Use supabase client for database operations
+  // RLS automatically filters by user.id
+  // Your logic here - user.id is the authenticated trainer ID
 }
 ```
 
@@ -523,25 +628,27 @@ When building authenticated pages that need to query the database (e.g., client 
 
 1. **Server Components** (Recommended for initial data):
    ```typescript
-   import { getSession } from '@/lib/auth/session'
-   import { createAdminClient } from '@/lib/supabase/admin'
+   import { createClient } from '@/lib/supabase/server'
+   import { redirect } from 'next/navigation'
 
    export default async function Page() {
-     const session = await getSession()
-     if (!session) redirect('/login')
+     const supabase = await createClient()
+     const { data: { user } } = await supabase.auth.getUser()
 
-     const supabase = createAdminClient()
+     if (!user) redirect('/login')
+
+     // RLS automatically filters by user.id
      const { data } = await supabase
        .from('clients')
        .select('*')
-       .eq('trainer_id', session.trainerId)
+       .eq('trainer_id', user.id)
 
      return <div>{/* render data */}</div>
    }
    ```
 
 2. **Client Components** (For interactive mutations):
-   - Use API routes (e.g., `/api/clients/route.ts`) that verify session and query via admin client
+   - Use API routes (e.g., `/api/clients/route.ts`) that verify auth with `supabase.auth.getUser()`
    - Call API routes from client components using `fetch()`
    - Example: `PunchClassButton` component calls `POST /api/clients/[id]/punches`
 
@@ -600,25 +707,60 @@ See `prd.md` for full product requirements. Key points:
 
 **Required tables**: trainers, clients, punches, payments, rate_history, audit_log
 
+**Important**: After running migrations, configure Supabase Auth:
+1. Go to Authentication → Providers → Enable Email provider
+2. Go to Authentication → Settings:
+   - ✅ "Allow new users to sign up" - ON
+   - ❌ "Confirm email" - OFF (for MVP)
+   - ❌ "Allow manual linking" - OFF
+   - ❌ "Allow anonymous sign-ins" - OFF
+
 ## Known Issues / Technical Debt
 
+### ✅ Resolved (Production Ready)
+- **Authentication Migration**: ✅ **Complete** - Migrated from custom JWT to Supabase Auth (email/password)
+  - Removed custom JWT session management
+  - Using Supabase Auth for all authentication
+  - RLS works automatically with `auth.uid()`
+  - No JWT_SECRET needed (managed by Supabase)
 - **Supabase TypeScript types**: ✅ **Fixed** - Proper types generated from database schema, zero `as any` workarounds
-- **No test suite**: No tests currently implemented (unit, integration, or e2e)
-- **README.md**: ✅ **Updated** - Now accurately reflects Next.js 16, shadcn/ui, and Tailwind CSS v4
-- **PWA Configuration** (GYM-16 - ✅ Complete): Progressive Web App is fully configured and functional
+- **README.md**: ✅ **Updated** - Now accurately reflects Supabase Auth and current architecture
+- **PWA Configuration** (GYM-16): ✅ **Complete** - Fully functional and live in production
   - PWA icons (192x192, 512x512, Apple touch icon) in public/ folder
   - Manifest.json configured with dark theme colors (#020817)
   - Service worker configured via Serwist (@serwist/next) in next.config.ts
   - Install prompt component with beforeinstallprompt event handling
   - PWA is disabled in development mode, enabled in production
-- **Next.js 16 metadata warnings**: ✅ Fixed - viewport and themeColor moved to separate viewport export
-- **Dialog accessibility**: Some shadcn Dialog components missing `DialogDescription` for screen readers
-- Supabase Auth is completely unused (we built custom JWT auth per PRD requirements)
-- Consider removing `@supabase/ssr` dependency since we don't use Supabase Auth
-- Rate limiting not yet implemented on auth endpoints
-- Audit log triggers exist in migrations but audit UI not built yet
-- Default JWT_SECRET in code should never be used in production
-- Linear issue tracking is used (issues referenced as GYM-XX in commits) but integration not documented
+- **Next.js 16 metadata warnings**: ✅ **Fixed** - viewport and themeColor moved to separate viewport export
+- **Dialog accessibility**: ✅ **Fixed** - All Dialogs now have proper DialogDescription for screen readers
+- **Date picker dark mode**: ✅ **Fixed** - Calendar icons now visible with `colorScheme: 'dark'`
+- **Mobile layout consistency** (GYM-15): ✅ **Complete** - MobileLayout component used across all pages
+- **Audit log RLS policy**: ✅ **Fixed** - Added INSERT policy for audit_log table (migration 006)
+- **Duplicate audit logs**: ✅ **Fixed** - Removed duplicate database triggers, kept API code logging only (migration 007)
+
+### 📋 Remaining Technical Debt (Non-Blocking)
+- **No test suite**: No tests currently implemented (unit, integration, or e2e)
+- **Rate limiting**: Not yet implemented on auth endpoints (deferred - not critical for MVP)
+- **Audit log UI**: Audit log data exists but viewer UI not built yet (can query directly from Supabase dashboard)
+- **Linear integration**: Linear issue tracking is used (issues referenced as GYM-XX, FB-XX in commits) but integration not documented
+
+## Next Steps / Roadmap
+
+### Backlog Features
+**PDF Export System** (Low Priority in Linear Backlog)
+- Install jsPDF library
+- Per-client PDF export (statement with punches, payments, balance)
+- All-clients summary PDF export
+- Date range selector for filtering
+- File naming: `[ClientName]_Statement_[Date].pdf`
+- Currently showing as disabled button on client detail page
+
+### Future Enhancements (Post-MVP)
+- Rate limiting on auth endpoints
+- Audit log viewer UI
+- Test suite implementation
+- Performance monitoring (Vercel Analytics)
+- Error tracking (Sentry integration)
 
 ## UI Framework
 

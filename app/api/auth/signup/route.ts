@@ -1,96 +1,121 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createSession } from '@/lib/auth/session'
-import bcrypt from 'bcryptjs'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
-    const { phone, pin } = await request.json()
+    const { name, email, phone, password } = await request.json()
 
     // Validate input
-    if (!phone || !pin) {
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { error: 'Phone and PIN are required' },
+        { error: 'Name, email, and password are required' },
         { status: 400 }
       )
     }
 
-    // Validate phone format (+91XXXXXXXXXX)
-    const phoneRegex = /^\+91[6-9]\d{9}$/
-    if (!phoneRegex.test(phone)) {
+    // Validate name (at least 2 characters)
+    if (name.trim().length < 2) {
       return NextResponse.json(
-        { error: 'Invalid phone number format' },
+        { error: 'Name must be at least 2 characters' },
         { status: 400 }
       )
     }
 
-    // Validate PIN (4 digits)
-    if (!/^\d{4}$/.test(pin)) {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
       return NextResponse.json(
-        { error: 'PIN must be 4 digits' },
+        { error: 'Invalid email format' },
         { status: 400 }
       )
     }
 
-    // Use admin client to bypass RLS for checking and creating
-    const adminSupabase = createAdminClient()
+    // Validate phone (optional but if provided must be valid Indian mobile)
+    if (phone && typeof phone === 'string' && phone.trim().length > 0) {
+      const phoneRegex = /^[6-9]\d{9}$/
+      if (!phoneRegex.test(phone.trim())) {
+        return NextResponse.json(
+          { error: 'Invalid Indian mobile number' },
+          { status: 400 }
+        )
+      }
+    }
 
-    // Check if phone already exists
-    const { data: existingTrainer } = await adminSupabase
-      .from('trainers')
-      .select('id')
-      .eq('phone', phone)
-      .single()
-
-    if (existingTrainer) {
+    // Validate password (at least 6 characters for Supabase)
+    if (password.length < 6) {
       return NextResponse.json(
-        { error: 'Phone number already registered. Please log in.' },
-        { status: 409 }
+        { error: 'Password must be at least 6 characters' },
+        { status: 400 }
       )
     }
 
-    // Hash the PIN
-    const pinHash = await bcrypt.hash(pin, 10)
+    const supabase = await createClient()
 
-    // Create trainer record (admin client bypasses RLS)
-    const { data: trainer, error: createError } = await adminSupabase
+    // Create auth user with Supabase Auth
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name, // Store name in user metadata
+        },
+      },
+    })
+
+    if (signUpError) {
+      console.error('Supabase Auth signup error:', signUpError)
+
+      // Handle specific error cases
+      if (signUpError.message.includes('already registered')) {
+        return NextResponse.json(
+          { error: 'Email already registered. Please log in.' },
+          { status: 409 }
+        )
+      }
+
+      return NextResponse.json(
+        { error: signUpError.message },
+        { status: 400 }
+      )
+    }
+
+    if (!authData.user) {
+      return NextResponse.json(
+        { error: 'Failed to create account' },
+        { status: 500 }
+      )
+    }
+
+    // Create trainer record with same ID as auth user
+    const { error: createError } = await supabase
       .from('trainers')
       .insert([
         {
-          phone,
-          pin_hash: pinHash,
+          id: authData.user.id, // Use auth user ID
+          name: name.trim(),
+          phone: phone?.trim() || null, // Optional field
         },
       ])
-      .select()
-      .single()
 
     if (createError) {
-      console.error('Failed to create trainer:', createError)
+      console.error('Failed to create trainer record:', createError)
+
+      // If trainer creation fails, we should ideally delete the auth user
+      // but for now just return error
       return NextResponse.json(
-        { error: 'Failed to create account' },
+        { error: 'Failed to create trainer profile' },
         { status: 500 }
       )
     }
 
-    if (!trainer) {
-      return NextResponse.json(
-        { error: 'Failed to create account' },
-        { status: 500 }
-      )
-    }
-
-    // Create session with custom JWT
-    await createSession({
-      trainerId: trainer.id,
-      phone: trainer.phone,
-    })
-
+    // Session is automatically created by Supabase Auth
     return NextResponse.json({
       success: true,
       message: 'Account created successfully',
-      trainer: {
-        id: trainer.id,
-        phone: trainer.phone,
+      user: {
+        id: authData.user.id,
+        email: authData.user.email,
+        name,
       },
     })
   } catch (error) {

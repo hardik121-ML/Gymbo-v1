@@ -6,8 +6,7 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth/session'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { recalculateBalance, verifyBalance } from '@/lib/balance/calculate'
 
 interface RouteContext {
@@ -20,19 +19,18 @@ export async function POST(request: Request, context: RouteContext) {
     const { id: clientId } = await context.params
 
     // Check authentication
-    const session = await getSession()
-    if (!session) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const supabase = createAdminClient()
 
     // Verify client exists and belongs to trainer
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
       .select('id, name')
       .eq('id', clientId)
-      .eq('trainer_id', session.trainerId)
+      .eq('trainer_id', user.id)
       .single()
 
     if (clientError || !clientData) {
@@ -61,19 +59,18 @@ export async function GET(request: Request, context: RouteContext) {
     const { id: clientId } = await context.params
 
     // Check authentication
-    const session = await getSession()
-    if (!session) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const supabase = createAdminClient()
 
     // Verify client exists and belongs to trainer
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
       .select('id, name')
       .eq('id', clientId)
-      .eq('trainer_id', session.trainerId)
+      .eq('trainer_id', user.id)
       .single()
 
     if (clientError || !clientData) {

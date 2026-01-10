@@ -1,77 +1,56 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createSession } from '@/lib/auth/session'
-import bcrypt from 'bcryptjs'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
-    const { phone, pin } = await request.json()
+    const { email, password } = await request.json()
 
     // Validate input
-    if (!phone || !pin) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: 'Phone and PIN are required' },
+        { error: 'Email and password are required' },
         { status: 400 }
       )
     }
 
-    // Validate phone format (+91XXXXXXXXXX)
-    const phoneRegex = /^\+91[6-9]\d{9}$/
-    if (!phoneRegex.test(phone)) {
-      return NextResponse.json(
-        { error: 'Invalid phone number format' },
-        { status: 400 }
-      )
-    }
+    const supabase = await createClient()
 
-    // Validate PIN (4 digits)
-    if (!/^\d{4}$/.test(pin)) {
-      return NextResponse.json(
-        { error: 'PIN must be 4 digits' },
-        { status: 400 }
-      )
-    }
-
-    // Use admin client to fetch trainer (bypass RLS)
-    const adminSupabase = createAdminClient()
-
-    // Find trainer by phone
-    const { data: trainer, error: fetchError } = await adminSupabase
-      .from('trainers')
-      .select('id, phone, pin_hash, name')
-      .eq('phone', phone)
-      .single()
-
-    if (fetchError || !trainer) {
-      return NextResponse.json(
-        { error: 'Invalid phone number or PIN' },
-        { status: 401 }
-      )
-    }
-
-    // Verify PIN
-    const isPinValid = await bcrypt.compare(pin, trainer.pin_hash)
-
-    if (!isPinValid) {
-      return NextResponse.json(
-        { error: 'Invalid phone number or PIN' },
-        { status: 401 }
-      )
-    }
-
-    // Create session with custom JWT
-    await createSession({
-      trainerId: trainer.id,
-      phone: trainer.phone,
+    // Sign in with Supabase Auth
+    const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     })
 
+    if (signInError) {
+      console.error('Supabase Auth login error:', signInError)
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
+
+    if (!authData.user) {
+      return NextResponse.json(
+        { error: 'Login failed' },
+        { status: 401 }
+      )
+    }
+
+    // Fetch trainer profile
+    const { data: trainer } = await supabase
+      .from('trainers')
+      .select('id, name, phone')
+      .eq('id', authData.user.id)
+      .single()
+
+    // Session is automatically created by Supabase Auth
     return NextResponse.json({
       success: true,
       message: 'Logged in successfully',
-      trainer: {
-        id: trainer.id,
-        phone: trainer.phone,
-        name: trainer.name,
+      user: {
+        id: authData.user.id,
+        email: authData.user.email,
+        name: trainer?.name || authData.user.user_metadata?.name,
       },
     })
   } catch (error) {

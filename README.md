@@ -9,7 +9,7 @@ A mobile-first Progressive Web App (PWA) for independent personal trainers in In
 - **Frontend**: Next.js 16 (App Router) + TypeScript + React 19
 - **UI**: shadcn/ui + Tailwind CSS v4 (Dark Theme)
 - **Backend**: Supabase (PostgreSQL with Row-Level Security)
-- **Auth**: Custom JWT-based authentication (bcryptjs + jsonwebtoken)
+- **Auth**: Supabase Auth (email/password)
 - **PWA**: Serwist for service worker and offline support
 - **Platform**: Progressive Web App (PWA)
 
@@ -37,8 +37,7 @@ cp .env.local.example .env.local
 Edit `.env.local` and add your credentials:
 - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anon key
-- `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key (server-side only)
-- `JWT_SECRET`: Secret key for JWT sessions (generate with `openssl rand -base64 32`)
+- `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key (server-side only, rarely needed)
 
 3. Set up the database:
 
@@ -67,8 +66,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
   LoadingSkeletons  # Loading state components
   [feature components] # PunchClassButton, LogPaymentButton, etc.
 /lib
-  /auth             # Custom JWT session management
-  /supabase         # Supabase client configurations
+  /supabase         # Supabase client configurations (server, client, admin)
 /types              # TypeScript type definitions
 /supabase/migrations # Database migration SQL files
 ```
@@ -76,9 +74,10 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ## Key Features
 
 ### Authentication
-- Phone number + 4-digit PIN authentication
-- Custom JWT sessions (30-day expiration)
-- Zero-cost auth (no external provider)
+- Email + Password authentication (minimum 6 characters)
+- Supabase Auth for secure session management
+- Optional phone number collection during signup
+- Zero-cost auth (included in Supabase free tier)
 
 ### Client Management
 - Add, view, edit clients
@@ -137,12 +136,13 @@ npm run lint         # Run ESLint
 
 Before deploying to production:
 
-- [ ] Change `JWT_SECRET` in environment variables (generate with `openssl rand -base64 32`)
-- [ ] Implement rate limiting on auth endpoints
-- [ ] Generate proper Supabase TypeScript types
+- [x] Authentication configured (Supabase Auth)
+- [x] Supabase TypeScript types generated
+- [x] PWA configuration complete
+- [ ] Implement rate limiting on auth endpoints (optional)
 - [ ] Test PWA installation on target devices
 - [ ] Verify all migrations are applied to production database
-- [ ] Set up error monitoring/logging service
+- [ ] Set up error monitoring/logging service (optional)
 
 ## License
 

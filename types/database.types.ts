@@ -12,23 +12,20 @@ export type Database = {
       trainers: {
         Row: {
           id: string
-          phone: string
-          pin_hash: string
-          name: string | null
+          phone: string | null
+          name: string
           created_at: string
         }
         Insert: {
-          id?: string
-          phone: string
-          pin_hash: string
-          name?: string | null
+          id: string // Must match auth.users.id
+          phone?: string | null
+          name: string
           created_at?: string
         }
         Update: {
           id?: string
-          phone?: string
-          pin_hash?: string
-          name?: string | null
+          phone?: string | null
+          name?: string
           created_at?: string
         }
         Relationships: []

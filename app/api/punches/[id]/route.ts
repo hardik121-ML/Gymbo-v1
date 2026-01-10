@@ -5,8 +5,7 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth/session'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -18,8 +17,9 @@ export async function PATCH(request: Request, context: RouteContext) {
     const { id: punchId } = await context.params
 
     // Check authentication
-    const session = await getSession()
-    if (!session) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -65,8 +65,6 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
-    const supabase = createAdminClient()
-
     // Fetch the punch to verify it exists and belongs to trainer's client
     const { data: punchData, error: punchError } = await supabase
       .from('punches')
@@ -94,7 +92,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       .from('clients')
       .select('id, trainer_id')
       .eq('id', punchData.client_id)
-      .eq('trainer_id', session.trainerId)
+      .eq('trainer_id', user.id)
       .single()
 
     if (clientError || !clientData) {
@@ -128,7 +126,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const { error: auditError } = await supabase
       .from('audit_log')
       .insert({
-        trainer_id: session.trainerId,
+        trainer_id: user.id,
         client_id: punchData.client_id,
         action: 'PUNCH_EDIT',
         details: {
@@ -161,12 +159,11 @@ export async function DELETE(request: Request, context: RouteContext) {
     const { id: punchId } = await context.params
 
     // Check authentication
-    const session = await getSession()
-    if (!session) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const supabase = createAdminClient()
 
     // Fetch the punch to verify it exists and belongs to trainer's client
     const { data: punchData, error: punchError } = await supabase
@@ -195,7 +192,7 @@ export async function DELETE(request: Request, context: RouteContext) {
       .from('clients')
       .select('id, balance, trainer_id')
       .eq('id', punchData.client_id)
-      .eq('trainer_id', session.trainerId)
+      .eq('trainer_id', user.id)
       .single()
 
     if (clientError || !clientData) {
@@ -249,7 +246,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     const { error: auditError } = await supabase
       .from('audit_log')
       .insert({
-        trainer_id: session.trainerId,
+        trainer_id: user.id,
         client_id: punchData.client_id,
         action: 'PUNCH_REMOVE',
         details: {
