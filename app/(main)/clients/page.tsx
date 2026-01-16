@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ClientList } from '@/components/ClientList'
 import { MobileLayout } from '@/components/MobileLayout'
+import { ClientPageActions } from '@/components/ClientPageActions'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -24,10 +25,12 @@ export default async function ClientsPage() {
   }
 
   // Fetch clients for this trainer (RLS automatically filters by user.id)
+  // Filter out soft-deleted clients
   const { data: clients, error } = await supabase
     .from('clients')
     .select('id, name, balance, current_rate, updated_at')
     .eq('trainer_id', user.id)
+    .eq('is_deleted', false)
     .order('updated_at', { ascending: false })
 
   if (error) {
@@ -38,14 +41,8 @@ export default async function ClientsPage() {
 
   return (
     <MobileLayout title="Gymbo" showLogout={true}>
-      {/* Add Client Button */}
-      <div className="mb-6">
-        <Link href="/clients/new" className="block">
-          <Button className="w-full" size="lg">
-            + Add Client
-          </Button>
-        </Link>
-      </div>
+      {/* Client Actions (Add Client + Import Contacts) */}
+      <ClientPageActions />
 
       {/* Client List or Empty State */}
       {clientList.length === 0 ? (

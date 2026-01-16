@@ -197,7 +197,12 @@ export default async function ClientDetailPage({ params }: PageProps) {
           />
           <Link href={`/clients/${id}/history`}>
             <Button variant="outline" className="w-full">
-              📜 View History
+              💳 Payments
+            </Button>
+          </Link>
+          <Link href={`/clients/${id}/audit`}>
+            <Button variant="outline" className="w-full">
+              📜 Full History
             </Button>
           </Link>
           <Link href={`/clients/${id}/change-rate`}>

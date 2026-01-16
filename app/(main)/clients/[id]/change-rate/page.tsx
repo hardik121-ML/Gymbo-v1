@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { formatRate } from '@/lib/utils/currency'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -178,7 +179,7 @@ export default function ChangeRatePage({ params }: PageProps) {
             <div className="mb-6 pb-6 border-b">
               <h2 className="text-lg font-semibold">{clientData?.name}</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Current Rate: <span className="font-medium">₹{clientData?.currentRate}/class</span>
+                Current Rate: <span className="font-medium">{clientData && formatRate(clientData.currentRate * 100)}</span>
               </p>
             </div>
 

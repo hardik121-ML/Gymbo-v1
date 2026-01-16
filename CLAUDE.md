@@ -28,9 +28,10 @@ Gymbo is a mobile-first Progressive Web App (PWA) for independent personal train
 - Environment variables configured in Vercel dashboard
 
 **Environment Variables** (Production):
-- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Public anon key (safe for client)
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL (e.g., `https://lwkucbtmtylbbdskvrnc.supabase.co`)
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Public anon key (starts with `eyJ...`, safe for client)
 - `SUPABASE_SERVICE_ROLE_KEY` - Service role key (server-side only, SECRET, rarely needed)
+- ~~`JWT_SECRET`~~ - **REMOVED** after migration to Supabase Auth (safe to delete from Vercel if still present)
 
 **Security Notes**:
 - ⚠️ Never commit production secrets to git
@@ -38,7 +39,18 @@ Gymbo is a mobile-first Progressive Web App (PWA) for independent personal train
 - ⚠️ Production secrets managed via Vercel dashboard only
 - ⚠️ Sessions managed by Supabase Auth (no custom JWT secret needed)
 
+**Common Deployment Issues**:
+- **"Invalid API key" error**: Check that `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel exactly matches the anon key from Supabase dashboard (starts with `eyJ`, often gets truncated when copy-pasting)
+- **Login works locally but fails in production**: Verify all three Supabase env vars match between `.env.local` and Vercel dashboard
+- **After env var changes**: Always trigger a manual redeploy in Vercel (env var updates don't auto-redeploy)
+
 **Deployment History**:
+- **2026-01-12**: Additional features (GYM-27, GYM-29, GYM-30, GYM-31)
+  - Bulk import clients from phone contacts via Contact Picker API (GYM-27)
+  - "Choose a date" link added to punch button for better UX (GYM-29)
+  - Swipe-to-delete clients with undo functionality (GYM-30, migration 008)
+  - Full audit timeline view showing complete client history (GYM-31)
+  - New components: SwipeableClientCard, ImportContactsButton, ImportReviewModal, AuditTimeline, AuditEventItem, Toast
 - **2026-01-11**: Audit log architecture refactor
   - Fixed audit_log RLS policy to allow INSERT operations (migration 006)
   - Removed duplicate audit triggers to prevent double-logging (migration 007)
@@ -124,7 +136,7 @@ npx supabase gen types typescript --project-id <project-id> > types/database.typ
 
 Core tables:
 - `trainers` - Trainer profiles (id matches auth.users.id, name, phone optional)
-- `clients` - Clients belonging to trainers (name, phone, current_rate, balance, credit_balance)
+- `clients` - Clients belonging to trainers (name, phone, current_rate, balance, credit_balance, is_deleted)
 - `punches` - Class records (client_id, punch_date, is_deleted for soft delete)
 - `payments` - Payment records (client_id, amount, classes_added, rate_at_payment)
 - `rate_history` - Historical rate changes (client_id, rate, effective_date)
@@ -152,6 +164,7 @@ Core tables:
 - `005_migrate_to_supabase_auth.sql` - Supabase Auth migration (links trainers to auth.users)
 - `006_fix_audit_log_rls.sql` - Add INSERT policy for audit_log (fixes RLS violation)
 - `007_remove_duplicate_triggers.sql` - Remove duplicate audit triggers (keeps API code logging only)
+- `008_add_client_soft_delete.sql` - Add is_deleted column to clients table (GYM-30)
 
 ### Audit Log Architecture
 
@@ -273,15 +286,18 @@ From PRD requirements:
 
 ## Implemented Features
 
-### Client Management (GYM-14, GYM-13, GYM-12)
+### Client Management (GYM-14, GYM-13, GYM-12, GYM-25, GYM-24, GYM-27, GYM-30, GYM-31)
 
 **Client List** (`/clients`):
 - Displays all clients with balance indicators (🔴 negative, 🟡 low ≤3, 🟢 healthy >3)
+- **Swipe-to-delete** (GYM-30) - Swipe left to reveal delete button, confirmation dialog, 4-second undo window
+  - Uses `SwipeableClientCard` component with touch + mouse event support for desktop testing
+  - Soft delete pattern (`is_deleted = true`) preserves historical data
+  - Shows toast notification with undo action
 - Sortable by: Recent (default), Name, Balance
 - Empty state for new trainers
 - Server Component that fetches data on page load
 - Uses `ClientList` component for sorting (Client Component)
-- `ClientCard` component for each client
 - `LogoutButton` component for logout (must use POST, not GET)
 
 **Add Client** (`/clients/new`):
@@ -291,6 +307,17 @@ From PRD requirements:
 - Client Component with form state management
 - API: `POST /api/clients`
 
+**Bulk Import Clients** (GYM-27):
+- `ImportContactsButton` component on client list page
+- Uses Contact Picker API (Chrome/Edge Android only, progressive enhancement)
+- Shows disabled state with tooltip on unsupported browsers
+- `ImportReviewModal` with two-screen flow: review contacts → import results
+- Detects duplicates by phone number
+- Normalizes phone numbers (removes +91 country code, validates Indian mobile format)
+- Sets `current_rate = 0` for bulk-imported clients
+- Logs CLIENT_ADD action for each imported client
+- API: `POST /api/clients/bulk-import`
+
 **Client Detail** (`/clients/[id]`):
 - Shows client name, balance (large), rate, balance status text
 - Color-coded balance display (red/yellow/green)
@@ -298,8 +325,8 @@ From PRD requirements:
 - **Negative balance alert** - Red warning banner when balance < 0, shows amount owed and "Log Payment" CTA
 - **Grouped punches list** (GYM-10) - Punches grouped by month with pagination (20 per page)
 - Empty state for clients with no punches yet
-- Large "PUNCH CLASS" button (fixed at bottom for thumb reach)
-- Action buttons: Log Payment, View History (active), Export PDF (disabled), Edit Client (active), Change Rate (active)
+- Large "PUNCH CLASS" button (fixed at bottom for thumb reach) with "or choose a date" link (GYM-29)
+- Action buttons: Log Payment, Payments (payment history), Full History (audit timeline), Change Rate, Edit Client
 - Server Component that fetches client and punch data
 
 **Edit Client** (`/clients/[id]/edit` - GYM-25):
@@ -325,10 +352,29 @@ From PRD requirements:
 - Empty state when no payments exist
 - Server Component that fetches payment data
 
-### Punch Tracking (GYM-11, GYM-8, GYM-9)
+**Audit Timeline / Full History** (`/clients/[id]/audit` - GYM-31):
+- Timeline view showing ALL historical activity for a client
+- Groups events by month with sticky month headers
+- Vertical timeline line connecting events (1px, rgba(235, 235, 230, 0.2))
+- Event types with color-coded Lucide icons:
+  - 👊 PUNCH_ADD (green CircleDot) - date/time, credit indicator, balance changes
+  - ❌ PUNCH_REMOVE (red CircleX) - "Removed" + original date, balance changes
+  - ✏️ PUNCH_EDIT (blue Edit) - old date → new date
+  - 💳 PAYMENT_ADD (green CreditCard) - amount, +classes, rate, credit used/added, balance changes
+  - 🎯 RATE_CHANGE (orange Edit2) - new rate, effective date
+  - ➕ CLIENT_ADD (blue UserPlus) - creation timestamp
+  - ✏️ CLIENT_UPDATE (blue Edit) - name/phone changes
+  - 🗑️ CLIENT_DELETE (red UserX) - soft delete indicator
+- Empty state: "no history yet"
+- Components: `AuditTimeline`, `AuditEventItem`
+- Pulls from `audit_log` table (no database changes needed)
 
-**Punch Class Action** (GYM-11, GYM-26):
+### Punch Tracking (GYM-11, GYM-8, GYM-9, GYM-29)
+
+**Punch Class Action** (GYM-11, GYM-26, GYM-29):
 - `PunchClassButton` component - large CTA at bottom of client detail page
+- **"or choose a date" link** (GYM-29) - Centered text link below button, triggers same date picker modal
+  - Underlined, 50% opacity, hover to 100%, 44px tap target for accessibility
 - Date picker modal (defaults to today, allows up to 3 months back, no future dates)
 - **Credit Auto-Usage** (GYM-26): If credit ≥ rate, deducts from credit (balance unchanged)
   - Otherwise, decrements balance by 1 (credit unchanged)
@@ -407,14 +453,23 @@ From PRD requirements:
 - `MobileLayout` - Mobile-first layout shell with header, back button, and optional logout (GYM-15)
 - `BalanceIndicator` - Visual status dot (red/yellow/green) based on balance
 - `ClientCard` - Client list item with name, balance, rate, credit (GYM-26), clickable
+- `SwipeableClientCard` - Swipeable wrapper for ClientCard with delete functionality (GYM-30)
+  - Touch + mouse event handlers for desktop testing
+  - Confirmation dialog, toast notification with undo
 - `ClientList` - Sortable client list with filter controls
+- `ClientPageActions` - Wrapper for Add Client + Import Contacts buttons (GYM-27)
+- `ImportContactsButton` - Contact Picker API integration with progressive enhancement (GYM-27)
+- `ImportReviewModal` - Two-screen modal for reviewing and importing contacts (GYM-27)
 - `ClientBalanceCard` - Large balance display with color-coded status and credit badge
-- `PunchClassButton` - Primary action button with date picker modal (decreases balance or credit)
+- `PunchClassButton` - Primary action button with date picker modal and "or choose a date" link (GYM-29)
 - `PunchesListGrouped` - Punches grouped by month with pagination (GYM-10)
 - `PunchListItem` - Individual punch row with edit (✎) and delete (✕) buttons
 - `LogPaymentButton` - Payment form with "Use Credit Balance" checkbox (GYM-26), increases balance
 - `NegativeBalanceAlert` - Red warning banner for negative balances with CTA
 - `ClientDetailActions` - Wrapper that manages alert and payment button interaction
+- `AuditTimeline` - Timeline component with month grouping and sticky headers (GYM-31)
+- `AuditEventItem` - Individual audit event with icons and rich formatting (GYM-31)
+- `Toast` - Reusable toast notification with auto-dismiss and optional undo button (GYM-30)
 - `LogoutButton` - Logout with POST request handling
 
 **Loading Skeletons** (`components/LoadingSkeletons.tsx` - GYM-15):
@@ -454,14 +509,31 @@ From PRD requirements:
   - Creates client, rate_history, audit_log
   - Returns: `{ client }`
 
+- `POST /api/clients/bulk-import` - Bulk import clients from contacts (GYM-27)
+  - Body: `{ contacts: [{ name, phone }] }` (array of contact objects)
+  - Validates: name ≥2 chars, phone must be valid Indian mobile (10 digits, 6-9)
+  - Normalizes phone numbers (removes +91 country code)
+  - Detects duplicates by phone number (fetches existing clients first)
+  - Sets `current_rate = 0` for all imported clients
+  - Logs CLIENT_ADD for each imported client
+  - Returns: `{ imported: Client[], skipped: { name, phone, reason }[] }`
+
 - `GET /api/clients/[id]` - Get client details
   - Returns: `{ client }` with all fields
 
 - `PATCH /api/clients/[id]` - Update client details (GYM-25)
-  - Body: `{ name?, phone? }` (at least one required)
+  - Body: `{ name?, phone?, is_deleted? }` (at least one required)
   - Validates: name ≥2 chars, phone must be valid Indian mobile
-  - Logs CLIENT_EDIT to audit trail
+  - `is_deleted` field used for soft delete/undo functionality (GYM-30)
+  - Logs CLIENT_UPDATE to audit trail (not for is_deleted changes)
   - Returns: `{ client }`
+
+- `DELETE /api/clients/[id]` - Soft delete a client (GYM-30)
+  - Sets `is_deleted = true` on client record
+  - Validates client exists and belongs to trainer
+  - Checks if already deleted (returns 400 if true)
+  - Logs CLIENT_DELETE to audit trail with soft_delete flag
+  - Returns: `{ success: true, client }`
 
 - `PATCH /api/clients/[id]/rate` - Change client rate (GYM-24)
   - Body: `{ rate, effectiveDate }` (rate in rupees, converted to paise)
@@ -618,9 +690,9 @@ export async function POST(request: Request) {
 
 1. Write SQL migration in `supabase/migrations/00X_your_migration.sql`
 2. Enable RLS: `ALTER TABLE your_table ENABLE ROW LEVEL SECURITY;`
-3. Add policy: `CREATE POLICY "trainer_isolation" ON your_table FOR ALL USING (trainer_id = current_setting('app.trainer_id')::uuid);`
+3. Add policy: `CREATE POLICY "trainer_isolation" ON your_table FOR ALL USING (trainer_id = auth.uid());`
 4. Run migration via Supabase SQL Editor or CLI
-5. Regenerate TypeScript types
+5. Regenerate TypeScript types with: `npx supabase gen types typescript --project-id lwkucbtmtylbbdskvrnc > types/database.types.ts`
 
 ### Fetching Data in Protected Pages
 

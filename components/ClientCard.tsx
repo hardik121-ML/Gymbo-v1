@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { BalanceIndicator } from './BalanceIndicator'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { formatCurrency, formatRate } from '@/lib/utils/currency'
 
 interface ClientCardProps {
   id: string
@@ -15,10 +16,6 @@ interface ClientCardProps {
   balance: number
   rate: number // Rate in paise
   credit?: number // Credit balance in paise (optional)
-}
-
-function formatCurrency(paise: number): string {
-  return `₹${(paise / 100).toFixed(0)}`
 }
 
 export function ClientCard({ id, name, balance, rate, credit }: ClientCardProps) {
@@ -31,7 +28,7 @@ export function ClientCard({ id, name, balance, rate, credit }: ClientCardProps)
               <BalanceIndicator balance={balance} size="md" />
               <div className="flex-1">
                 <h3 className="font-semibold text-lg">{name}</h3>
-                <p className="text-sm text-muted-foreground">{formatCurrency(rate)}/class</p>
+                <p className="text-sm text-muted-foreground">{formatRate(rate)}</p>
               </div>
             </div>
             <div className="text-right">

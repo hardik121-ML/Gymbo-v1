@@ -10,6 +10,7 @@ import { BalanceIndicator } from './BalanceIndicator'
 import { AnimatedBalance } from './AnimatedBalance'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { formatCurrency, formatRate } from '@/lib/utils/currency'
 
 interface ClientBalanceCardProps {
   balance: number
@@ -56,11 +57,11 @@ export function ClientBalanceCard({
         </p>
         {creditBalance > 0 && (
           <Badge variant="secondary" className="mb-4 bg-blue-500/10 border-blue-500/50 text-blue-400">
-            💳 Credit: ₹{(creditBalance / 100).toFixed(0)}
+            💳 Credit: {formatCurrency(creditBalance)}
           </Badge>
         )}
         <p className="text-sm text-muted-foreground">
-          Rate: ₹{(rate / 100).toFixed(0)} per class
+          Rate: {formatRate(rate)}
         </p>
       </CardContent>
     </Card>

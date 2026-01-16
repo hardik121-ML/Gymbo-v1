@@ -2,6 +2,7 @@
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { formatCurrency } from '@/lib/utils/currency'
 
 interface NegativeBalanceAlertProps {
   balance: number
@@ -22,10 +23,6 @@ export function NegativeBalanceAlert({
 
   const classesOnCredit = Math.abs(balance)
   const amountOwed = classesOnCredit * rate
-
-  const formatCurrency = (amountInPaise: number) => {
-    return `₹${(amountInPaise / 100).toLocaleString('en-IN')}`
-  }
 
   return (
     <Alert variant="destructive" className="mb-6 border-2">

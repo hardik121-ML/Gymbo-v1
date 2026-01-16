@@ -7,7 +7,7 @@
 // ============================================================================
 
 import { useState } from 'react'
-import { ClientCard } from './ClientCard'
+import { SwipeableClientCard } from './SwipeableClientCard'
 
 interface Client {
   id: string
@@ -81,7 +81,7 @@ export function ClientList({ clients }: ClientListProps) {
       {/* Client Cards */}
       <div className="space-y-3">
         {sortedClients.map((client) => (
-          <ClientCard
+          <SwipeableClientCard
             key={client.id}
             id={client.id}
             name={client.name}

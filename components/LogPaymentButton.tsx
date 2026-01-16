@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { formatCurrency } from '@/lib/utils/currency'
 
 interface LogPaymentButtonProps {
   clientId: string
@@ -267,7 +268,7 @@ export function LogPaymentButton({
                     className="w-5 h-5 rounded"
                   />
                   <label htmlFor="use-credit" className="flex-1 text-sm font-medium cursor-pointer">
-                    Use Credit Balance (₹{(currentCredit / 100).toFixed(0)} available)
+                    Use Credit Balance ({formatCurrency(currentCredit)} available)
                   </label>
                 </div>
               </Alert>
@@ -312,12 +313,12 @@ export function LogPaymentButton({
               </div>
               {amount && classesAdded && !useCredit && (
                 <p className="text-sm text-muted-foreground">
-                  ₹{amount} ÷ ₹{rateInRupees.toFixed(0)} = {classesAdded} classes
+                  ₹{parseFloat(amount).toLocaleString('en-IN')} ÷ {formatCurrency(currentRate)} = {classesAdded} classes
                 </p>
               )}
               {amount && classesAdded && useCredit && getCreditUsed() > 0 && (
                 <p className="text-sm text-muted-foreground">
-                  (₹{amount} + ₹{(getCreditUsed() / 100).toFixed(0)} credit) ÷ ₹{rateInRupees.toFixed(0)} = {classesAdded} classes
+                  (₹{parseFloat(amount).toLocaleString('en-IN')} + {formatCurrency(getCreditUsed())} credit) ÷ {formatCurrency(currentRate)} = {classesAdded} classes
                 </p>
               )}
             </div>
@@ -352,25 +353,25 @@ export function LogPaymentButton({
                     </p>
                     {useCredit && getCreditUsed() > 0 && (
                       <p className="text-sm">
-                        Credit Used: ₹{(getCreditUsed() / 100).toFixed(0)}
+                        Credit Used: {formatCurrency(getCreditUsed())}
                       </p>
                     )}
                     <p className="text-sm">
-                      Credit: ₹{(currentCredit / 100).toFixed(0)} {useCredit && getCreditUsed() > 0 ? `- ₹${(getCreditUsed() / 100).toFixed(0)}` : ''} {getCreditRemainder() > 0 ? `+ ₹${(getCreditRemainder() / 100).toFixed(0)}` : ''} = <strong>₹{(getNewCredit() / 100).toFixed(0)}</strong>
+                      Credit: {formatCurrency(currentCredit)} {useCredit && getCreditUsed() > 0 ? `- ${formatCurrency(getCreditUsed())}` : ''} {getCreditRemainder() > 0 ? `+ ${formatCurrency(getCreditRemainder())}` : ''} = <strong>{formatCurrency(getNewCredit())}</strong>
                     </p>
                     {useCredit && getCreditUsed() > 0 && (
                       <p className="text-xs text-blue-400 mt-2">
-                        ✅ Using ₹{(getCreditUsed() / 100).toFixed(0)} credit to complete this payment
+                        ✅ Using {formatCurrency(getCreditUsed())} credit to complete this payment
                       </p>
                     )}
                     {classesAdded === '0' && getCreditRemainder() > 0 && (
                       <p className="text-xs text-blue-400 mt-2">
-                        💰 Full amount of ₹{(getCreditRemainder() / 100).toFixed(0)} will be added as credit
+                        💰 Full amount of {formatCurrency(getCreditRemainder())} will be added as credit
                       </p>
                     )}
                     {classesAdded !== '0' && !useCredit && getCreditRemainder() > 0 && (
                       <p className="text-xs text-blue-400 mt-2">
-                        💡 Remainder of ₹{(getCreditRemainder() / 100).toFixed(0)} will be added as credit
+                        💡 Remainder of {formatCurrency(getCreditRemainder())} will be added as credit
                       </p>
                     )}
                   </div>

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { MobileLayout } from '@/components/MobileLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { formatCurrency } from '@/lib/utils/currency'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -92,10 +93,6 @@ export default async function PaymentHistoryPage({ params }: PageProps) {
   // Calculate totals
   const totalAmount = payments.reduce((sum, payment) => sum + payment.amount, 0)
   const totalClasses = payments.reduce((sum, payment) => sum + payment.classes_added, 0)
-
-  const formatCurrency = (amountInPaise: number) => {
-    return `₹${(amountInPaise / 100).toLocaleString('en-IN')}`
-  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', {

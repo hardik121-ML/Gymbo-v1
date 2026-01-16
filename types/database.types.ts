@@ -39,6 +39,7 @@ export type Database = {
           current_rate: number
           balance: number
           credit_balance: number
+          is_deleted: boolean
           created_at: string
           updated_at: string
         }
@@ -50,6 +51,7 @@ export type Database = {
           current_rate: number
           balance?: number
           credit_balance?: number
+          is_deleted?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -61,6 +63,7 @@ export type Database = {
           current_rate?: number
           balance?: number
           credit_balance?: number
+          is_deleted?: boolean
           created_at?: string
           updated_at?: string
         }

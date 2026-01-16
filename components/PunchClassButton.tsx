@@ -111,14 +111,26 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
   return (
     <>
       {/* Main Punch Button */}
-      <Button
-        onClick={handlePunchClick}
-        disabled={showDatePicker || showSuccess}
-        size="lg"
-        className="w-full text-xl py-6"
-      >
-        👊 PUNCH CLASS
-      </Button>
+      <div className="flex flex-col items-center gap-2">
+        <Button
+          onClick={handlePunchClick}
+          disabled={showDatePicker || showSuccess}
+          size="lg"
+          className="w-full text-xl py-6"
+        >
+          👊 PUNCH CLASS
+        </Button>
+
+        {/* Choose Date Link */}
+        <button
+          type="button"
+          onClick={handlePunchClick}
+          disabled={showDatePicker || showSuccess}
+          className="text-sm text-muted-foreground underline opacity-50 hover:opacity-100 transition-opacity py-3 min-h-[44px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          or choose a date
+        </button>
+      </div>
 
       {/* Date Picker Modal */}
       <Dialog open={showDatePicker} onOpenChange={setShowDatePicker}>
