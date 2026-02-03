@@ -9,7 +9,7 @@ A mobile-first Progressive Web App (PWA) for independent personal trainers in In
 - **Frontend**: Next.js 16 (App Router) + TypeScript + React 19
 - **UI**: shadcn/ui + Tailwind CSS v4 (Dark Theme)
 - **Backend**: Supabase (PostgreSQL with Row-Level Security)
-- **Auth**: Supabase Auth (email/password)
+- **Auth**: Supabase Auth (Phone + SMS OTP via Twilio Verify)
 - **PWA**: Serwist for service worker and offline support
 - **Platform**: Progressive Web App (PWA)
 
@@ -19,6 +19,7 @@ A mobile-first Progressive Web App (PWA) for independent personal trainers in In
 
 - Node.js 18+ and npm
 - A Supabase account (free tier works for MVP)
+- A Twilio account with Verify service configured (for SMS OTP)
 
 ### Installation
 
@@ -39,9 +40,14 @@ Edit `.env.local` and add your credentials:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anon key
 - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key (server-side only, rarely needed)
 
-3. Set up the database:
+3. Set up Supabase and Twilio:
 
-See `SUPABASE_SETUP.md` for detailed setup instructions or `RUN_MIGRATIONS.md` for quick migration steps.
+- **Database Setup**: See `SUPABASE_SETUP.md` for detailed instructions or `RUN_MIGRATIONS.md` for quick steps
+- **Twilio Setup**:
+  1. Create a Twilio account and get your Account SID, Auth Token, and Verify Service SID
+  2. In Supabase Dashboard → Authentication → Providers → Phone
+  3. Enable Phone provider and add your Twilio credentials
+  4. See CLAUDE.md for detailed Twilio configuration steps
 
 4. Run the development server:
 
@@ -74,16 +80,18 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ## Key Features
 
 ### Authentication
-- Email + Password authentication (minimum 6 characters)
-- Supabase Auth for secure session management
-- Optional phone number collection during signup
-- Zero-cost auth (included in Supabase free tier)
+- Phone + SMS OTP authentication (6-digit code, 60-second expiry)
+- Indian mobile numbers only (+91XXXXXXXXXX format)
+- Supabase Auth + Twilio Verify for secure SMS delivery
+- Automatic session management with cookie-based auth
+- Edge case handling: duplicate signup prevention, unregistered login detection
+- Cost: ~$0.008 per OTP (Twilio pricing for India)
 
 ### Client Management
 - Add, view, edit clients
 - Track current rate per class
 - Rate change history with effective dates
-- Phone number (optional) for contact
+- Phone number required for authentication
 
 ### Punch Tracking
 - Record classes with date picker (up to 3 months back)
@@ -136,10 +144,14 @@ npm run lint         # Run ESLint
 
 Before deploying to production:
 
-- [x] Authentication configured (Supabase Auth)
+- [x] Authentication configured (Supabase Auth + Twilio)
+- [x] Phone provider enabled in Supabase
+- [x] Twilio Verify service configured
 - [x] Supabase TypeScript types generated
 - [x] PWA configuration complete
-- [ ] Implement rate limiting on auth endpoints (optional)
+- [x] Database migration 009 applied (phone auth)
+- [ ] Set Twilio spending limits (to prevent SMS spam costs)
+- [ ] Test OTP delivery on production
 - [ ] Test PWA installation on target devices
 - [ ] Verify all migrations are applied to production database
 - [ ] Set up error monitoring/logging service (optional)

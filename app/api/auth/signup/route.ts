@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: Request) {
   try {
-    const { name, email, phone, password } = await request.json()
+    const { name, phone } = await request.json()
 
     // Validate input
-    if (!name || !email || !password) {
+    if (!name || !phone) {
       return NextResponse.json(
-        { error: 'Name, email, and password are required' },
+        { error: 'Name and phone number are required' },
         { status: 400 }
       )
     }
@@ -21,43 +22,38 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    // Validate phone (E.164 format: +91XXXXXXXXXX)
+    const phoneRegex = /^\+91[6-9]\d{9}$/
+    if (!phoneRegex.test(phone)) {
       return NextResponse.json(
-        { error: 'Invalid email format' },
+        { error: 'Invalid phone number. Must be in format +91XXXXXXXXXX' },
         { status: 400 }
       )
     }
 
-    // Validate phone (optional but if provided must be valid Indian mobile)
-    if (phone && typeof phone === 'string' && phone.trim().length > 0) {
-      const phoneRegex = /^[6-9]\d{9}$/
-      if (!phoneRegex.test(phone.trim())) {
-        return NextResponse.json(
-          { error: 'Invalid Indian mobile number' },
-          { status: 400 }
-        )
-      }
-    }
+    // Check if phone number already exists (use admin client to bypass RLS)
+    const adminClient = createAdminClient()
+    const { data: existingTrainer } = await adminClient
+      .from('trainers')
+      .select('id, phone, name')
+      .eq('phone', phone)
+      .maybeSingle()
 
-    // Validate password (at least 6 characters for Supabase)
-    if (password.length < 6) {
+    if (existingTrainer) {
       return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
-        { status: 400 }
+        { error: 'Phone number already registered. Please log in instead.' },
+        { status: 409 }
       )
     }
 
     const supabase = await createClient()
 
-    // Create auth user with Supabase Auth
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
+    // Send OTP to phone number (Supabase handles Twilio integration)
+    const { error: signUpError } = await supabase.auth.signInWithOtp({
+      phone,
       options: {
         data: {
-          name, // Store name in user metadata
+          name, // Store name in user metadata for later use
         },
       },
     })
@@ -66,9 +62,9 @@ export async function POST(request: Request) {
       console.error('Supabase Auth signup error:', signUpError)
 
       // Handle specific error cases
-      if (signUpError.message.includes('already registered')) {
+      if (signUpError.message.includes('User already registered')) {
         return NextResponse.json(
-          { error: 'Email already registered. Please log in.' },
+          { error: 'Phone number already registered. Please log in.' },
           { status: 409 }
         )
       }
@@ -79,44 +75,13 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!authData.user) {
-      return NextResponse.json(
-        { error: 'Failed to create account' },
-        { status: 500 }
-      )
-    }
+    // Note: User record and trainer record are created AFTER OTP verification
+    // See verify-otp endpoint
 
-    // Create trainer record with same ID as auth user
-    const { error: createError } = await supabase
-      .from('trainers')
-      .insert([
-        {
-          id: authData.user.id, // Use auth user ID
-          name: name.trim(),
-          phone: phone?.trim() || null, // Optional field
-        },
-      ])
-
-    if (createError) {
-      console.error('Failed to create trainer record:', createError)
-
-      // If trainer creation fails, we should ideally delete the auth user
-      // but for now just return error
-      return NextResponse.json(
-        { error: 'Failed to create trainer profile' },
-        { status: 500 }
-      )
-    }
-
-    // Session is automatically created by Supabase Auth
     return NextResponse.json({
       success: true,
-      message: 'Account created successfully',
-      user: {
-        id: authData.user.id,
-        email: authData.user.email,
-        name,
-      },
+      message: 'OTP sent successfully. Please verify to complete signup.',
+      phone,
     })
   } catch (error) {
     console.error('Signup error:', error)

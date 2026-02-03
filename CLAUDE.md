@@ -2,6 +2,44 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Quick Reference
+
+**Most Common Commands:**
+```bash
+npm run dev              # Start dev server (localhost:3000)
+npm run build --webpack  # Production build (requires --webpack flag for Next.js 16)
+npm run lint             # Run ESLint
+
+# Regenerate database types after schema changes
+npx supabase gen types typescript --project-id lwkucbtmtylbbdskvrnc > types/database.types.ts
+```
+
+**Most Common Patterns:**
+```typescript
+// Get authenticated user in Server Components
+const supabase = await createClient()
+const { data: { user } } = await supabase.auth.getUser()
+
+// Currency: Always store in PAISE (₹800 = 80000 paise)
+
+// Wrap all pages in MobileLayout for consistent UI
+<MobileLayout title="Page Title" showBackButton={true} backHref="/back">
+```
+
+**Most Important Files:**
+- `proxy.ts` - Next.js 16 auth proxy (NOT middleware.ts - this is the Next.js 16 way)
+- `lib/supabase/server.ts` - Server-side Supabase client (respects RLS)
+- `lib/supabase/client.ts` - Browser client for Client Components
+- `types/database.types.ts` - Generated TypeScript types from database
+- `supabase/migrations/` - Database schema migrations (run in order!)
+
+**Key Architecture Decisions:**
+- ✅ All monetary amounts in PAISE (not rupees) to avoid floating-point issues
+- ✅ Supabase Auth (not custom JWT) - zero cost, battle-tested
+- ✅ Soft deletes (is_deleted flag) - never lose data
+- ✅ Audit logs via API code (not database triggers) for credit tracking
+- ✅ shadcn/ui dark theme only (no light mode toggle)
+
 ## Project Overview
 
 Gymbo is a mobile-first Progressive Web App (PWA) for independent personal trainers in India to track client classes (punches), payments, and balances. It's a "punch card tracker" - trainers log classes, record payments, and the app automatically calculates how many classes each client has remaining.
@@ -13,7 +51,7 @@ Gymbo is a mobile-first Progressive Web App (PWA) for independent personal train
 **Tech Stack**:
 - Next.js 16 (App Router) + TypeScript + React 19
 - shadcn/ui + Tailwind CSS v4 for styling (dark theme)
-- Supabase (PostgreSQL + Supabase Auth for email/password authentication)
+- Supabase (PostgreSQL + Supabase Auth for phone + SMS OTP authentication via Twilio Verify)
 - Serwist for PWA/service worker functionality
 
 ## Production Deployment
@@ -56,9 +94,15 @@ Gymbo is a mobile-first Progressive Web App (PWA) for independent personal train
   - Removed duplicate audit triggers to prevent double-logging (migration 007)
   - All audit logs now created by API code with full credit tracking details
   - Rate changes still use database trigger (only non-duplicated trigger)
+- **2026-02-03**: Migration to Phone + OTP Authentication
+  - Migrated from email/password to phone + SMS OTP via Twilio Verify
+  - Indian mobile numbers only (+91XXXXXXXXXX format)
+  - Two-step authentication flow (phone entry → OTP verification)
+  - 60-second OTP expiry with resend functionality
+  - Edge case handling: duplicate signup prevention, unregistered login detection
+  - Database migration 009: phone now required and unique
 - **2026-01-10**: Migration to Supabase Auth
-  - Replaced custom JWT auth with Supabase Auth (email/password)
-  - Added optional phone number collection during signup
+  - Replaced custom JWT auth with Supabase Auth
   - Removed bcryptjs and jsonwebtoken dependencies
   - Updated all authentication flows and RLS policies
 - **2026-01-06**: Initial production deployment
@@ -101,41 +145,67 @@ npx supabase gen types typescript --project-id <project-id> > types/database.typ
 
 ## Architecture
 
-### Authentication System (Supabase Auth)
+### Authentication System (Supabase Auth + Twilio Verify)
 
-**Important**: We use Supabase Auth with email/password authentication. This is included free in Supabase's free tier (up to 50,000 MAU) and meets the PRD's zero-cost requirement.
+**Important**: We use Supabase Auth with phone + SMS OTP authentication via Twilio Verify. This is included free in Supabase's free tier (up to 50,000 MAU). Twilio SMS costs ~₹0.66 per OTP (~$0.008 USD).
 
 **Flow**:
-1. Trainer signs up with name + email + password (6+ characters) + optional phone
-2. Supabase Auth creates user in `auth.users` table
-3. We create matching record in `trainers` table with same ID
-4. Sessions are managed automatically by Supabase (cookies, token refresh, etc.)
-5. Sessions are validated in `proxy.ts` (Next.js 16 proxy)
+1. **Signup**: Trainer enters name + phone (+91XXXXXXXXXX format)
+   - System checks if phone already exists (admin client to bypass RLS)
+   - If phone is new, sends 6-digit OTP via Twilio Verify (60-second expiry)
+   - Trainer enters OTP to verify
+   - On successful verification: creates auth user + trainer record
+2. **Login**: Trainer enters phone number
+   - System checks if phone exists in trainers table (admin client)
+   - If exists, sends 6-digit OTP via Twilio Verify (60-second expiry)
+   - Trainer enters OTP to verify
+   - On successful verification: creates session
+3. Sessions are managed automatically by Supabase (cookies, token refresh)
+4. Sessions are validated in `proxy.ts` (Next.js 16 proxy)
+
+**Two-Step UI Flow**:
+- Step 1: Phone entry (10 digits, displays with +91 prefix)
+- Step 2: OTP verification (6-digit code, 60s expiry, resend option)
 
 **Key Files**:
 - `lib/supabase/server.ts` - Server-side Supabase client for auth and queries
+- `lib/supabase/admin.ts` - Admin client for pre-auth phone existence checks (bypasses RLS)
 - `proxy.ts` - Next.js 16 proxy that checks Supabase Auth sessions and redirects
-- `app/api/auth/signup/route.ts` - Signup endpoint (creates auth user + trainer record)
-- `app/api/auth/login/route.ts` - Login endpoint (uses Supabase signInWithPassword)
+- `app/api/auth/signup/route.ts` - Signup endpoint (checks phone existence, sends OTP)
+- `app/api/auth/login/route.ts` - Login endpoint (checks phone existence, sends OTP)
+- `app/api/auth/verify-otp/route.ts` - OTP verification endpoint (creates trainer record if signup)
 - `app/api/auth/logout/route.ts` - Logout endpoint (uses Supabase signOut)
+- `app/(auth)/signup/page.tsx` - Two-step signup UI
+- `app/(auth)/login/page.tsx` - Two-step login UI
 
 **Data Storage**:
 - Authentication credentials: Stored in `auth.users` (managed by Supabase)
-- Trainer profile: Stored in `trainers` table (name, phone)
+- Trainer profile: Stored in `trainers` table (name, phone - both required)
 - `trainers.id` = `auth.users.id` (linked)
+- Phone numbers stored in E.164 format: +91XXXXXXXXXX (unique constraint)
 
-**Why Supabase Auth?**
-- Battle-tested security (password hashing, token management, session refresh)
-- Zero cost (included in free tier)
-- Less code to maintain (no custom JWT logic)
+**Edge Cases Handled**:
+- **Duplicate signup**: Checks if phone exists BEFORE sending OTP (saves SMS cost)
+- **Unregistered login**: Checks if phone exists BEFORE sending OTP (saves SMS cost)
+- **RLS bypass**: Uses admin client for pre-auth queries (unauthenticated API routes can't query trainers table)
+
+**Cost Optimization**:
+- Phone existence checks happen BEFORE sending OTP to avoid unnecessary SMS costs
+- Admin client (`createAdminClient()`) bypasses RLS for pre-auth queries
+
+**Why Supabase Auth + Twilio?**
+- Battle-tested security (OTP generation, expiry, token management)
+- Low cost (~₹0.66 per OTP, only charged when OTP is sent)
+- Zero-infrastructure (no custom SMS gateway needed)
 - RLS works automatically with `auth.uid()`
+- Mobile-first UX (no password typing on small screens)
 
 ### Database Architecture
 
 **Supabase PostgreSQL with Row-Level Security (RLS)**
 
 Core tables:
-- `trainers` - Trainer profiles (id matches auth.users.id, name, phone optional)
+- `trainers` - Trainer profiles (id matches auth.users.id, name, phone - both required, phone is unique)
 - `clients` - Clients belonging to trainers (name, phone, current_rate, balance, credit_balance, is_deleted)
 - `punches` - Class records (client_id, punch_date, is_deleted for soft delete)
 - `payments` - Payment records (client_id, amount, classes_added, rate_at_payment)
@@ -165,6 +235,7 @@ Core tables:
 - `006_fix_audit_log_rls.sql` - Add INSERT policy for audit_log (fixes RLS violation)
 - `007_remove_duplicate_triggers.sql` - Remove duplicate audit triggers (keeps API code logging only)
 - `008_add_client_soft_delete.sql` - Add is_deleted column to clients table (GYM-30)
+- `009_migrate_to_phone_auth.sql` - Phone + OTP authentication migration (phone required and unique)
 
 ### Audit Log Architecture
 
@@ -311,6 +382,7 @@ From PRD requirements:
 - `ImportContactsButton` component on client list page
 - Uses Contact Picker API (Chrome/Edge Android only, progressive enhancement)
 - Shows disabled state with tooltip on unsupported browsers
+- **Browser Compatibility**: Contact Picker API only works on Chrome/Edge Android (not iOS Safari). The button gracefully degrades to disabled state with a tooltip on unsupported browsers.
 - `ImportReviewModal` with two-screen flow: review contacts → import results
 - Detects duplicates by phone number
 - Normalizes phone numbers (removes +91 country code, validates Indian mobile format)
@@ -485,18 +557,32 @@ From PRD requirements:
 ### API Endpoints
 
 **Authentication** (`app/api/auth/`):
-- `POST /api/auth/signup` - Create trainer account
-  - Body: `{ name, email, phone?, password }`
-  - Creates Supabase Auth user + trainers record
-  - Phone is optional (stored in trainers.phone if provided)
-  - Password minimum 6 characters
-  - Returns: `{ user: { id, email, name } }`
+- `POST /api/auth/signup` - Step 1: Send OTP for signup
+  - Body: `{ name, phone }` (phone in E.164 format: +91XXXXXXXXXX)
+  - Validates: name ≥2 chars, phone matches +91[6-9]XXXXXXXXX
+  - Checks if phone already exists (admin client to bypass RLS)
+  - If phone is new, sends 6-digit OTP via Supabase Auth (Twilio Verify)
+  - OTP expires in 60 seconds
+  - Returns: `{ success: true, message: 'OTP sent...', phone }`
+  - Returns 409 if phone already registered
 
-- `POST /api/auth/login` - Login with email/password
-  - Body: `{ email, password }`
-  - Uses Supabase Auth signInWithPassword
+- `POST /api/auth/login` - Step 1: Send OTP for login
+  - Body: `{ phone }` (phone in E.164 format: +91XXXXXXXXXX)
+  - Validates: phone matches +91[6-9]XXXXXXXXX
+  - Checks if phone exists in trainers table (admin client to bypass RLS)
+  - If phone exists, sends 6-digit OTP via Supabase Auth (Twilio Verify)
+  - OTP expires in 60 seconds
+  - Returns: `{ success: true, message: 'OTP sent...', phone }`
+  - Returns 404 if phone not registered
+
+- `POST /api/auth/verify-otp` - Step 2: Verify OTP (both signup and login)
+  - Body: `{ phone, otp, name? }` (name required for signup, optional for login)
+  - Verifies OTP with Supabase Auth
+  - On signup: creates trainer record with name and phone
+  - On login: fetches existing trainer record
   - Session managed automatically by Supabase
-  - Returns: `{ user: { id, email, name } }`
+  - Returns: `{ success: true, user: { id, name, phone } }`
+  - Returns 401 if OTP is invalid or expired
 
 - `POST /api/auth/logout` - Logout (must be POST!)
   - Uses Supabase Auth signOut
@@ -779,20 +865,33 @@ See `prd.md` for full product requirements. Key points:
 
 **Required tables**: trainers, clients, punches, payments, rate_history, audit_log
 
-**Important**: After running migrations, configure Supabase Auth:
-1. Go to Authentication → Providers → Enable Email provider
-2. Go to Authentication → Settings:
-   - ✅ "Allow new users to sign up" - ON
-   - ❌ "Confirm email" - OFF (for MVP)
-   - ❌ "Allow manual linking" - OFF
-   - ❌ "Allow anonymous sign-ins" - OFF
+**Important**: After running migrations, configure Supabase Auth and Twilio:
+1. **Twilio Setup**:
+   - Create a Twilio account and get Account SID, Auth Token, and Verify Service SID
+   - See README.md and SUPABASE_SETUP.md for detailed Twilio configuration steps
+2. **Supabase Authentication Configuration**:
+   - Go to Authentication → Providers → Phone
+   - Enable Phone provider and add Twilio credentials:
+     - Twilio Account SID
+     - Twilio Auth Token
+     - Twilio Verify Service SID (not Messaging Service SID!)
+   - Set OTP expiry to 60 seconds (configured at project level)
+3. **Authentication Settings**:
+   - Go to Authentication → Settings:
+     - ✅ "Allow new users to sign up" - ON
+     - ❌ "Confirm phone" - OFF (OTP verification is enough)
+     - ❌ "Allow manual linking" - OFF
+     - ❌ "Allow anonymous sign-ins" - OFF
 
 ## Known Issues / Technical Debt
 
 ### ✅ Resolved (Production Ready)
-- **Authentication Migration**: ✅ **Complete** - Migrated from custom JWT to Supabase Auth (email/password)
+- **Authentication Migration**: ✅ **Complete** - Migrated to Supabase Auth with phone + SMS OTP
   - Removed custom JWT session management
-  - Using Supabase Auth for all authentication
+  - Using Supabase Auth + Twilio Verify for OTP delivery
+  - Two-step authentication flow (phone → OTP verification)
+  - Edge case handling (duplicate signup, unregistered login detection)
+  - Phone now required and unique in trainers table (migration 009)
   - RLS works automatically with `auth.uid()`
   - No JWT_SECRET needed (managed by Supabase)
 - **Supabase TypeScript types**: ✅ **Fixed** - Proper types generated from database schema, zero `as any` workarounds
@@ -813,7 +912,6 @@ See `prd.md` for full product requirements. Key points:
 ### 📋 Remaining Technical Debt (Non-Blocking)
 - **No test suite**: No tests currently implemented (unit, integration, or e2e)
 - **Rate limiting**: Not yet implemented on auth endpoints (deferred - not critical for MVP)
-- **Audit log UI**: Audit log data exists but viewer UI not built yet (can query directly from Supabase dashboard)
 - **Linear integration**: Linear issue tracking is used (issues referenced as GYM-XX, FB-XX in commits) but integration not documented
 
 ## Next Steps / Roadmap
@@ -829,7 +927,6 @@ See `prd.md` for full product requirements. Key points:
 
 ### Future Enhancements (Post-MVP)
 - Rate limiting on auth endpoints
-- Audit log viewer UI
 - Test suite implementation
 - Performance monitoring (Vercel Analytics)
 - Error tracking (Sentry integration)
