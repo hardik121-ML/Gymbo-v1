@@ -83,6 +83,13 @@ Gymbo is a mobile-first Progressive Web App (PWA) for independent personal train
 - **After env var changes**: Always trigger a manual redeploy in Vercel (env var updates don't auto-redeploy)
 
 **Deployment History**:
+- **2026-02-05**: Visual enhancements and animation system (GYM-36, GYM-37, GYM-38)
+  - Punch card visual component with 20-dot grid display (GYM-38)
+  - Success overlays for punch and payment actions (GYM-37)
+  - Comprehensive motion/animation system with accessibility support (GYM-36)
+  - New components: PunchCard, SuccessOverlay
+  - Animations: screen transitions, list stagger, button press feedback
+  - Full prefers-reduced-motion support for accessibility
 - **2026-01-12**: Additional features (GYM-27, GYM-29, GYM-30, GYM-31)
   - Bulk import clients from phone contacts via Contact Picker API (GYM-27)
   - "Choose a date" link added to punch button for better UX (GYM-29)
@@ -530,22 +537,33 @@ From PRD requirements:
 
 **Reusable Components** (`components/`):
 - `MobileLayout` - Mobile-first layout shell with header, back button, and optional logout (GYM-15)
+  - Now includes screen-enter animation for smooth page transitions (GYM-36)
 - `BalanceIndicator` - Visual status dot (red/yellow/green) based on balance
 - `ClientCard` - Client list item with name, balance, rate, credit (GYM-26), clickable
 - `SwipeableClientCard` - Swipeable wrapper for ClientCard with delete functionality (GYM-30)
   - Touch + mouse event handlers for desktop testing
   - Confirmation dialog, toast notification with undo
-- `ClientList` - Sortable client list with filter controls
+- `ClientList` - Sortable client list with filter controls and stagger animations (GYM-36)
+  - Each client card animates in with 50ms delay between items
 - `ClientPageActions` - Wrapper for Add Client + Import Contacts buttons (GYM-27)
 - `ImportContactsButton` - Contact Picker API integration with progressive enhancement (GYM-27)
 - `ImportReviewModal` - Two-screen modal for reviewing and importing contacts (GYM-27)
 - `ClientBalanceCard` - Large balance display with color-coded status and credit badge
+- `PunchCard` - Visual 20-dot punch card showing classes used/remaining (GYM-38)
+  - 2 rows × 10 columns, cream background, bounce animation on fill
+  - Shows overflow indicator for negative balance
 - `PunchClassButton` - Primary action button with date picker modal and "or choose a date" link (GYM-29)
+  - Shows SuccessOverlay after punch with updated balance
 - `PunchesListGrouped` - Punches grouped by month with pagination (GYM-10)
 - `PunchListItem` - Individual punch row with edit (✎) and delete (✕) buttons
 - `LogPaymentButton` - Payment form with "Use Credit Balance" checkbox (GYM-26), increases balance
+  - Shows SuccessOverlay after payment with classes added count
 - `NegativeBalanceAlert` - Red warning banner for negative balances with CTA
 - `ClientDetailActions` - Wrapper that manages alert and payment button interaction
+- `SuccessOverlay` - Full-screen success confirmation overlay (GYM-37)
+  - Dark semi-transparent background with pulsing green check icon
+  - Auto-dismiss after 2s or tap to dismiss
+  - Used for punch and payment confirmations
 - `AuditTimeline` - Timeline component with month grouping and sticky headers (GYM-31)
 - `AuditEventItem` - Individual audit event with icons and rich formatting (GYM-31)
 - `Toast` - Reusable toast notification with auto-dismiss and optional undo button (GYM-30)
@@ -981,3 +999,56 @@ See `prd.md` for full product requirements. Key points:
 - Color palette defined in `:root .dark` selector in globals.css
 - Never use hard-coded colors (bg-white, text-gray-900, etc.) - always use semantic tokens
 - Example: Use `bg-background` instead of `bg-gray-900`, `text-muted-foreground` instead of `text-gray-500`
+
+## Motion/Animation System (GYM-36)
+
+**Comprehensive animation system for polished UX:**
+
+**Animation Classes** (defined in `app/globals.css`):
+
+| Class | Animation | Duration | Usage |
+|-------|-----------|----------|-------|
+| `.screen-enter` | fadeSlideUp | 300ms | Page transitions (applied to MobileLayout) |
+| `.screen-exit` | fadeSlideDown | 200ms | Back navigation (available for future use) |
+| `.stagger-item` | staggerFadeIn | 300ms + 50ms delay | List items (applied to ClientList) |
+| `.btn:active` | buttonPress | 150ms | Button tap feedback (all Button components) |
+| `.animate-punch-bounce` | punchBounce | 600ms | Punch card dot fill (GYM-38) |
+| `.animate-celebration-pulse` | celebrationPulse | 1s infinite | Success overlay icon (GYM-37) |
+| `.animate-fade-in` | fadeIn | 200ms | Overlay entrance |
+| `.animate-fade-out` | fadeOut | 200ms | Overlay exit |
+
+**Key Features**:
+- **Spring easing**: `cubic-bezier(0.34, 1.56, 0.64, 1)` for bounce effects
+- **Stagger delays**: 50ms increments between list items (supports up to 20 items)
+- **Accessibility**: Full `prefers-reduced-motion` support - all animations disabled when user enables reduced motion
+
+**Usage Examples**:
+```tsx
+// Screen transition (automatic in MobileLayout)
+<main className="screen-enter">
+  {children}
+</main>
+
+// List stagger animation
+<div className="stagger-item">
+  <ClientCard {...props} />
+</div>
+
+// Button press feedback (automatic on all Button components)
+<Button>Click me</Button> {/* Has .btn class with :active animation */}
+```
+
+**Accessibility**:
+```css
+@media (prefers-reduced-motion: reduce) {
+  /* All animations reduced to 0.01ms or disabled completely */
+  .screen-enter,
+  .stagger-item,
+  /* ... other animations */
+  {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+```
