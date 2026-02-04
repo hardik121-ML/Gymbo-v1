@@ -183,3 +183,119 @@
 .animate-fade-out {
   animation: fadeOut 0.2s ease-out;
 }
+
+/* Motion/Animation System (GYM-36) */
+
+/* Screen Transitions */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeSlideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+/* List Item Stagger Animation */
+@keyframes staggerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Button Press Feedback */
+@keyframes buttonPress {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Animation Classes */
+.screen-enter {
+  animation: fadeSlideUp 300ms ease-out;
+}
+
+.screen-exit {
+  animation: fadeSlideDown 200ms ease-out;
+}
+
+.stagger-item {
+  animation: staggerFadeIn 300ms ease-out;
+  opacity: 0;
+  animation-fill-mode: forwards;
+}
+
+/* Stagger delays for list items (up to 20 items) */
+.stagger-item:nth-child(1) { animation-delay: 0ms; }
+.stagger-item:nth-child(2) { animation-delay: 50ms; }
+.stagger-item:nth-child(3) { animation-delay: 100ms; }
+.stagger-item:nth-child(4) { animation-delay: 150ms; }
+.stagger-item:nth-child(5) { animation-delay: 200ms; }
+.stagger-item:nth-child(6) { animation-delay: 250ms; }
+.stagger-item:nth-child(7) { animation-delay: 300ms; }
+.stagger-item:nth-child(8) { animation-delay: 350ms; }
+.stagger-item:nth-child(9) { animation-delay: 400ms; }
+.stagger-item:nth-child(10) { animation-delay: 450ms; }
+.stagger-item:nth-child(11) { animation-delay: 500ms; }
+.stagger-item:nth-child(12) { animation-delay: 550ms; }
+.stagger-item:nth-child(13) { animation-delay: 600ms; }
+.stagger-item:nth-child(14) { animation-delay: 650ms; }
+.stagger-item:nth-child(15) { animation-delay: 700ms; }
+.stagger-item:nth-child(16) { animation-delay: 750ms; }
+.stagger-item:nth-child(17) { animation-delay: 800ms; }
+.stagger-item:nth-child(18) { animation-delay: 850ms; }
+.stagger-item:nth-child(19) { animation-delay: 900ms; }
+.stagger-item:nth-child(20) { animation-delay: 950ms; }
+
+/* Button press feedback */
+.btn:active {
+  animation: buttonPress 150ms ease-out;
+}
+
+/* Accessibility: Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Disable specific animations */
+  .screen-enter,
+  .screen-exit,
+  .stagger-item,
+  .animate-punch-bounce,
+  .animate-celebration-pulse,
+  .animate-fade-in,
+  .animate-fade-out {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

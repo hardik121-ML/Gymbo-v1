@@ -84,7 +84,7 @@ export function MobileLayout({
       </header>
 
       {/* Main Content - Max-width container for mobile-first design */}
-      <main className="max-w-3xl mx-auto px-4 py-6 pb-24">
+      <main className="max-w-3xl mx-auto px-4 py-6 pb-24 screen-enter">
         {children}
       </main>
     </div>

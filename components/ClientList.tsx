@@ -81,14 +81,15 @@ export function ClientList({ clients }: ClientListProps) {
       {/* Client Cards */}
       <div className="space-y-3">
         {sortedClients.map((client) => (
-          <SwipeableClientCard
-            key={client.id}
-            id={client.id}
-            name={client.name}
-            balance={client.balance}
-            rate={client.current_rate}
-            credit={client.credit_balance}
-          />
+          <div key={client.id} className="stagger-item">
+            <SwipeableClientCard
+              id={client.id}
+              name={client.name}
+              balance={client.balance}
+              rate={client.current_rate}
+              credit={client.credit_balance}
+            />
+          </div>
         ))}
       </div>
     </>
