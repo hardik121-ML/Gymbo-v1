@@ -6,6 +6,7 @@ import { PunchClassButton } from '@/components/PunchClassButton'
 import { PunchesListGrouped } from '@/components/PunchesListGrouped'
 import { ClientDetailActions } from '@/components/ClientDetailActions'
 import { ClientBalanceCard } from '@/components/ClientBalanceCard'
+import { PunchCard } from '@/components/PunchCard'
 import { LogPaymentButton } from '@/components/LogPaymentButton'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -137,6 +138,13 @@ export default async function ClientDetailPage({ params }: PageProps) {
           balance={client.balance}
           rate={client.current_rate}
           creditBalance={client.credit_balance || 0}
+        />
+
+        {/* Punch Card Visual */}
+        <PunchCard
+          balance={client.balance}
+          clientId={client.id}
+          className="mb-6"
         />
 
         {/* Credit Activity Summary */}
