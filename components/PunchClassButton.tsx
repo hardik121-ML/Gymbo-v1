@@ -206,7 +206,6 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
       {/* Success Overlay */}
       {showSuccess && newBalance !== null && (
         <SuccessOverlay
-          type="punch"
           primaryText="class punched!"
           secondaryText={`balance: ${newBalance} ${newBalance === 1 ? 'class' : 'classes'}`}
           onDismiss={handleSuccessDismiss}

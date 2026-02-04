@@ -11,28 +11,17 @@ import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 
 interface SuccessOverlayProps {
-  type: 'punch' | 'payment'
   primaryText: string
   secondaryText: string
   onDismiss: () => void
 }
 
 export function SuccessOverlay({
-  type,
   primaryText,
   secondaryText,
   onDismiss
 }: SuccessOverlayProps) {
   const [isExiting, setIsExiting] = useState(false)
-
-  // Auto-dismiss after 2 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      handleDismiss()
-    }, 2000)
-
-    return () => clearTimeout(timer)
-  }, [])
 
   const handleDismiss = () => {
     // Start fade-out animation
@@ -43,6 +32,16 @@ export function SuccessOverlay({
       onDismiss()
     }, 200) // 200ms fade-out duration
   }
+
+  // Auto-dismiss after 2 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleDismiss()
+    }, 2000)
+
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleClick = () => {
     handleDismiss()

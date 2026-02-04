@@ -41,6 +41,7 @@ export function PunchCard({ balance, clientId, className = '' }: PunchCardProps)
     if (balance !== previousBalance) {
       // Balance decreased (a class was punched) - animate the newly filled dot
       if (balance < previousBalance && filledDots > 0 && filledDots <= totalDots) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAnimatingDot(filledDots - 1) // Animate the last filled dot (0-indexed)
         setTimeout(() => setAnimatingDot(null), 600) // Clear after animation
       }

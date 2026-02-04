@@ -415,7 +415,6 @@ export function LogPaymentButton({
       {/* Success Overlay */}
       {showSuccess && classesAddedFromResponse !== null && (
         <SuccessOverlay
-          type="payment"
           primaryText="payment recorded!"
           secondaryText={`+${classesAddedFromResponse} ${classesAddedFromResponse === 1 ? 'class' : 'classes'} added`}
           onDismiss={handleSuccessDismiss}
