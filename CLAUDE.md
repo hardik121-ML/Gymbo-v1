@@ -115,10 +115,10 @@ Gymbo is a mobile-first Progressive Web App (PWA) for independent personal train
 
 ```bash
 # Development
-npm run dev          # Start dev server on http://localhost:3000
+npm run dev          # Start dev server on http://localhost:3000 (uses Turbopack)
 
 # Production
-npm run build        # Build for production (uses --webpack flag due to Next.js 16 compatibility)
+npm run build        # Build for production (uses --webpack flag for Webpack mode)
 npm run start        # Start production server
 
 # Code Quality
@@ -131,7 +131,12 @@ npx supabase gen types typescript --project-id <project-id> > types/database.typ
 # Note: No test suite currently implemented
 ```
 
-**Important Build Note**: The build command uses `--webpack` flag (`next build --webpack`) because Next.js 16 requires explicit Webpack mode. This is configured in `package.json`. The project also uses Serwist for PWA functionality, which is disabled in development mode.
+**Important Build Notes**:
+- The build command uses `--webpack` flag (`next build --webpack`) because Next.js 16 uses Turbopack by default in dev mode but requires explicit Webpack mode for production builds
+- Dev mode runs with Turbopack for faster HMR (Hot Module Replacement)
+- The project uses Serwist for PWA functionality (service worker in `app/sw.ts`, compiled to `public/sw.js`), which is disabled in development mode
+
+**ESLint Configuration**: The project uses the modern ESLint flat config format (`eslint.config.mjs`) instead of the legacy `.eslintrc` format. This is the new standard for ESLint 9+.
 
 **Note**: The app uses Next.js 16 with shadcn/ui components and Tailwind CSS v4 in dark mode. The root page (`app/page.tsx`) automatically redirects authenticated users to `/clients` and unauthenticated users to `/login`.
 
@@ -296,8 +301,10 @@ Core tables:
 - Checks Supabase Auth sessions via `supabase.auth.getUser()`
 - Redirects authenticated users away from auth pages (`/login`, `/signup`) to `/clients`
 - Redirects unauthenticated users from protected pages (`/clients`) to `/login`
-- Uses a matcher config to exclude static files and images from processing
+- Uses a matcher config to exclude static files and images from processing: `_next/static`, `_next/image`, `favicon.ico`, and all image extensions (svg, png, jpg, jpeg, gif, webp)
 - Properly handles Supabase cookie management for session persistence
+
+**Important**: When adding new protected routes, update the `isProtectedPage` check in `proxy.ts` to include the new route pattern (see "Adding a New Protected Page" section below).
 
 ### Data Model: Currency
 
