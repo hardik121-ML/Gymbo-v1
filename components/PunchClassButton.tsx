@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { SuccessOverlay } from '@/components/SuccessOverlay'
 
 interface PunchClassButtonProps {
   clientId: string
@@ -32,6 +33,7 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
   const [isPunching, setIsPunching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [newBalance, setNewBalance] = useState<number | null>(null)
 
   // Get today's date in YYYY-MM-DD format
   const getTodayDate = () => {
@@ -80,6 +82,9 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
         return
       }
 
+      // Store the new balance from API response
+      setNewBalance(data.newBalance)
+
       // Show success feedback
       setShowSuccess(true)
       setShowDatePicker(false)
@@ -89,12 +94,9 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
         navigator.vibrate(50)
       }
 
-      // Wait for animation then refresh
-      setTimeout(() => {
-        router.refresh()
-        setShowSuccess(false)
-        setIsPunching(false)
-      }, 1500)
+      // Auto-dismiss is handled by SuccessOverlay (2s)
+      // Just need to refresh after overlay dismisses
+      setIsPunching(false)
     } catch (err) {
       console.error('Error punching class:', err)
       setError('An unexpected error occurred')
@@ -106,6 +108,12 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
     setShowDatePicker(false)
     setError(null)
     setSelectedDate('')
+  }
+
+  const handleSuccessDismiss = () => {
+    setShowSuccess(false)
+    setNewBalance(null)
+    router.refresh()
   }
 
   return (
@@ -195,37 +203,15 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
         </DialogContent>
       </Dialog>
 
-      {/* Success Feedback */}
-      {showSuccess && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card rounded-2xl p-8 text-center animate-scale-in border shadow-lg">
-            <div className="text-6xl mb-4">✅</div>
-            <h3 className="text-2xl font-bold mb-2">
-              Class Recorded!
-            </h3>
-            <p className="text-muted-foreground">
-              Balance updated successfully
-            </p>
-          </div>
-        </div>
+      {/* Success Overlay */}
+      {showSuccess && newBalance !== null && (
+        <SuccessOverlay
+          type="punch"
+          primaryText="class punched!"
+          secondaryText={`balance: ${newBalance} ${newBalance === 1 ? 'class' : 'classes'}`}
+          onDismiss={handleSuccessDismiss}
+        />
       )}
-
-      {/* Add animations */}
-      <style jsx>{`
-        @keyframes scale-in {
-          from {
-            transform: scale(0.8);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
-        }
-      `}</style>
     </>
   )
 }

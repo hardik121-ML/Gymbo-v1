@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { formatCurrency } from '@/lib/utils/currency'
+import { SuccessOverlay } from '@/components/SuccessOverlay'
 
 interface LogPaymentButtonProps {
   clientId: string
@@ -41,6 +42,7 @@ export function LogPaymentButton({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [classesAddedFromResponse, setClassesAddedFromResponse] = useState<number | null>(null)
 
   // Form state
   const [amount, setAmount] = useState('')
@@ -186,6 +188,9 @@ export function LogPaymentButton({
         return
       }
 
+      // Store classes added from response
+      setClassesAddedFromResponse(data.payment.classes_added)
+
       // Show success feedback
       setShowSuccess(true)
       setShowModal(false)
@@ -195,17 +200,20 @@ export function LogPaymentButton({
         navigator.vibrate(50)
       }
 
-      // Wait for animation then refresh
-      setTimeout(() => {
-        router.refresh()
-        setShowSuccess(false)
-        setIsSubmitting(false)
-      }, 1500)
+      // Auto-dismiss is handled by SuccessOverlay (2s)
+      // Just need to refresh after overlay dismisses
+      setIsSubmitting(false)
     } catch (err) {
       console.error('Error logging payment:', err)
       setError('An unexpected error occurred')
       setIsSubmitting(false)
     }
+  }
+
+  const handleSuccessDismiss = () => {
+    setShowSuccess(false)
+    setClassesAddedFromResponse(null)
+    router.refresh()
   }
 
   const rateInRupees = currentRate / 100
@@ -404,37 +412,15 @@ export function LogPaymentButton({
         </DialogContent>
       </Dialog>
 
-      {/* Success Feedback */}
-      {showSuccess && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card rounded-2xl p-8 text-center animate-scale-in border shadow-lg">
-            <div className="text-6xl mb-4">✅</div>
-            <h3 className="text-2xl font-bold mb-2">
-              Payment Recorded!
-            </h3>
-            <p className="text-muted-foreground">
-              Balance updated successfully
-            </p>
-          </div>
-        </div>
+      {/* Success Overlay */}
+      {showSuccess && classesAddedFromResponse !== null && (
+        <SuccessOverlay
+          type="payment"
+          primaryText="payment recorded!"
+          secondaryText={`+${classesAddedFromResponse} ${classesAddedFromResponse === 1 ? 'class' : 'classes'} added`}
+          onDismiss={handleSuccessDismiss}
+        />
       )}
-
-      {/* Add animations */}
-      <style jsx>{`
-        @keyframes scale-in {
-          from {
-            transform: scale(0.8);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
-        }
-      `}</style>
     </>
   )
 }
