@@ -138,14 +138,14 @@ export default function BrandSettingsPage() {
 
   if (isLoading) {
     return (
-      <MobileLayout title="Brand Settings" showBackButton={true} backHref="/clients">
+      <MobileLayout title="Brand Settings" showBackButton={true} backHref="/settings">
         <FormSkeleton />
       </MobileLayout>
     )
   }
 
   return (
-    <MobileLayout title="Brand Settings" showBackButton={true} backHref="/clients">
+    <MobileLayout title="Brand Settings" showBackButton={true} backHref="/settings">
       <Card>
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">

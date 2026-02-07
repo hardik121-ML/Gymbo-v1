@@ -40,7 +40,7 @@ export default async function ClientsPage() {
   const clientList = (clients as Client[]) || []
 
   return (
-    <MobileLayout title="Gymbo" showLogout={true}>
+    <MobileLayout title="Gymbo">
       {/* Client Actions (Add Client + Import Contacts) */}
       <ClientPageActions />
 

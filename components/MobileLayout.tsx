@@ -10,14 +10,12 @@ import { ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { LogoutButton } from '@/components/LogoutButton'
 
 interface MobileLayoutProps {
   children: ReactNode
   title?: string
   showBackButton?: boolean
   backHref?: string
-  showLogout?: boolean
   headerAction?: ReactNode
 }
 
@@ -26,7 +24,6 @@ export function MobileLayout({
   title = 'Gymbo',
   showBackButton = false,
   backHref,
-  showLogout = false,
   headerAction,
 }: MobileLayoutProps) {
   const router = useRouter()
@@ -74,11 +71,11 @@ export function MobileLayout({
               <h1 className="text-xl font-bold truncate">{title}</h1>
             </div>
 
-            {/* Right: Settings, Custom action, or Logout */}
+            {/* Right: Settings or Custom action */}
             <div className="flex items-center gap-2">
-              {/* Settings Button - Only show on clients page */}
-              {pathname === '/clients' && (
-                <Link href="/settings/brand">
+              {/* Settings Button - Show on all pages except settings pages */}
+              {!pathname.startsWith('/settings') && (
+                <Link href="/settings">
                   <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="Settings">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -97,7 +94,6 @@ export function MobileLayout({
                 </Link>
               )}
               {headerAction}
-              {showLogout && <LogoutButton />}
             </div>
           </div>
         </div>
