@@ -41,7 +41,8 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const isAuthPage = request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup'
-  const isProtectedPage = request.nextUrl.pathname.startsWith('/clients')
+  const isProtectedPage = request.nextUrl.pathname.startsWith('/clients') ||
+                          request.nextUrl.pathname.startsWith('/settings')
 
   // Redirect authenticated users away from auth pages
   if (user && isAuthPage) {

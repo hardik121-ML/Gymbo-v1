@@ -217,7 +217,7 @@ npx supabase gen types typescript --project-id <project-id> > types/database.typ
 **Supabase PostgreSQL with Row-Level Security (RLS)**
 
 Core tables:
-- `trainers` - Trainer profiles (id matches auth.users.id, name, phone - both required, phone is unique)
+- `trainers` - Trainer profiles (id matches auth.users.id, name, phone - both required, phone is unique, brand_name, brand_address, brand_phone, brand_email - all nullable)
 - `clients` - Clients belonging to trainers (name, phone, current_rate, balance, credit_balance, is_deleted, rate_updated_at)
 - `punches` - Class records (client_id, punch_date, is_deleted for soft delete)
 - `payments` - Payment records (client_id, amount, classes_added, rate_at_payment)
@@ -249,6 +249,7 @@ Core tables:
 - `008_add_client_soft_delete.sql` - Add is_deleted column to clients table (GYM-30)
 - `009_migrate_to_phone_auth.sql` - Phone + OTP authentication migration (phone required and unique)
 - `010_remove_rate_history_table.sql` - Remove rate_history table, add rate_updated_at to clients (simplifies architecture)
+- `011_add_brand_settings.sql` - Add brand settings columns to trainers table (brand_name, brand_address, brand_phone, brand_email - all nullable)
 
 ### Audit Log Architecture
 
@@ -534,6 +535,24 @@ From PRD requirements:
 - Non-blocking, informational only (trainer can still punch classes)
 - Client list already shows red indicator for negative balances via `BalanceIndicator`
 
+### Brand Settings
+
+**Brand Settings Page** (`/settings/brand`):
+- Configure business details for PDF statements and exports
+- Form fields: Business Name, Business Address, Business Phone (all required), Business Email (optional)
+- Validation: name ≥2 chars, address ≥5 chars, phone 10 digits (6-9), email format
+- Phone field shows +91 prefix with numeric keyboard
+- Preview link shows "Coming Soon" dialog (PDF export not yet implemented)
+- Accessible via settings gear icon in header (only on /clients page)
+- API: `GET /api/trainers`, `PATCH /api/trainers`
+- Database: `trainers.brand_name`, `trainers.brand_address`, `trainers.brand_phone`, `trainers.brand_email` (all nullable)
+
+**Navigation**:
+- Settings gear icon appears in header on `/clients` page only
+- Located between custom header actions and logout button
+- Ghost button style with 9x9 size for consistency with back button
+- Links to `/settings/brand`
+
 ### Components Library
 
 **Reusable Components** (`components/`):
@@ -614,6 +633,18 @@ From PRD requirements:
   - Uses Supabase Auth signOut
   - Clears session cookies
   - Returns: `{ success: true }`
+
+**Trainers** (`app/api/trainers/`):
+- `GET /api/trainers` - Fetch current trainer profile
+  - Returns: `{ trainer }` (includes all columns: id, name, phone, brand_name, brand_address, brand_phone, brand_email)
+  - Auth required
+
+- `PATCH /api/trainers` - Update brand settings
+  - Body: `{ brand_name, brand_address, brand_phone, brand_email }`
+  - Validates: name ≥2 chars, address ≥5 chars, phone 10 digits (6-9), email format (optional)
+  - Empty strings converted to NULL
+  - Returns: `{ trainer }`
+  - Auth required
 
 **Clients** (`app/api/clients/`):
 - `POST /api/clients` - Create new client

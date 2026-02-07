@@ -15,18 +15,30 @@ export type Database = {
           phone: string | null
           name: string
           created_at: string
+          brand_name: string | null
+          brand_address: string | null
+          brand_phone: string | null
+          brand_email: string | null
         }
         Insert: {
           id: string // Must match auth.users.id
           phone?: string | null
           name: string
           created_at?: string
+          brand_name?: string | null
+          brand_address?: string | null
+          brand_phone?: string | null
+          brand_email?: string | null
         }
         Update: {
           id?: string
           phone?: string | null
           name?: string
           created_at?: string
+          brand_name?: string | null
+          brand_address?: string | null
+          brand_phone?: string | null
+          brand_email?: string | null
         }
         Relationships: []
       }
