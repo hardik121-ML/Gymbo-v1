@@ -553,6 +553,92 @@ From PRD requirements:
 - Ghost button style with 9x9 size for consistency with back button
 - Links to `/settings/brand`
 
+### PDF Export (MAT-92, MAT-93, MAT-94, MAT-95)
+
+**Per-Client PDF Export**:
+- `ExportClientPDFButton` component on client detail page (6th button in action grid)
+- Opens `ExportModal` with three-screen flow:
+  1. Date range selection (Last 30 days, Last 3 months, All time, Custom)
+  2. Generating PDF (loading spinner)
+  3. Success confirmation (SuccessOverlay with file name)
+- Date range selector with validation (start ≤ end, no future dates)
+- API: `GET /api/clients/[id]/export-data?startDate=&endDate=`
+- PDF Generator: `generateClientPDF()` (client-side using jsPDF)
+
+**PDF Layout - Client Statement**:
+```
+CLIENT STATEMENT
+─────────────────────────────────────
+Trainer: [brand_name or "Gymbo Trainer"]
+Address: [brand_address or "Address not set"]
+Phone: [brand_phone or "Phone not set"]
+Email: [brand_email if exists]
+─────────────────────────────────────
+Client: [name]
+Phone: [phone]
+Period: [date range label]
+─────────────────────────────────────
+CLASSES ATTENDED
+[Table: Date | Paid with Credit]
+─────────────────────────────────────
+PAYMENTS RECEIVED
+[Table: Date | Amount | Classes | Rate]
+  (+₹X credit used) - if applicable
+  (+₹X credit added) - if applicable
+─────────────────────────────────────
+CURRENT BALANCE: [X] classes
+Credit Balance: ₹[Y]
+Amount Due: ₹[Z] (if negative balance)
+─────────────────────────────────────
+Generated on [date] via Gymbo
+```
+
+**All Clients PDF Export**:
+- `ExportAllClientsButton` component on client list page (3rd button in ClientPageActions)
+- Opens `ExportModal` with same three-screen flow
+- API: `GET /api/clients/export-all?startDate=&endDate=`
+- PDF Generator: `generateAllClientsPDF()` (client-side using jsPDF)
+
+**PDF Layout - All Clients Summary**:
+```
+ALL CLIENTS SUMMARY
+─────────────────────────────────────
+Trainer: [brand_name]
+Period: [date range label]
+─────────────────────────────────────
+SUMMARY STATISTICS
+Total Clients: [X]
+Total Classes (Remaining): [Y]
+Total Payments Received: ₹[Z]
+Total Outstanding: ₹[A]
+─────────────────────────────────────
+CLIENT LIST (Sorted by Balance)
+[Table: Name | Phone | Balance | Amount Due]
+─────────────────────────────────────
+Generated on [date] via Gymbo
+```
+
+**Technical Details**:
+- Client-side PDF generation (jsPDF library) for offline PWA support
+- File naming: `{ClientName}_Statement_{Date}.pdf` and `All_Clients_Summary_{Date}.pdf`
+- Auto-pagination with page breaks for large datasets
+- Missing brand settings fallback to placeholders
+- Empty data shows "No classes/payments in selected period"
+- Credit information enriched from audit logs
+- Performance: < 5s for 50 clients
+
+**Components**:
+- `DateRangeSelector` - Date range picker with presets and custom range
+- `ExportModal` - Three-screen modal (select → generating → success)
+- `ExportClientPDFButton` - Trigger button for single client export
+- `ExportAllClientsButton` - Trigger button for all clients export
+
+**PDF Utilities** (`lib/pdf/`):
+- `types.ts` - TypeScript type definitions (ClientPDFData, AllClientsPDFData)
+- `pdfTemplate.ts` - Shared template utilities (header, footer, table rendering)
+- `generateClientPDF.ts` - Single client statement generator
+- `generateAllClientsPDF.ts` - All clients summary generator
+
 ### Components Library
 
 **Reusable Components** (`components/`):
@@ -565,7 +651,7 @@ From PRD requirements:
   - Confirmation dialog, toast notification with undo
 - `ClientList` - Sortable client list with filter controls and stagger animations (GYM-36)
   - Each client card animates in with 50ms delay between items
-- `ClientPageActions` - Wrapper for Add Client + Import Contacts buttons (GYM-27)
+- `ClientPageActions` - Wrapper for Add Client + Import Contacts + Export All buttons (GYM-27, MAT-92)
 - `ImportContactsButton` - Contact Picker API integration with progressive enhancement (GYM-27)
 - `ImportReviewModal` - Two-screen modal for reviewing and importing contacts (GYM-27)
 - `ClientBalanceCard` - Large balance display with color-coded status and credit badge
@@ -583,7 +669,15 @@ From PRD requirements:
 - `SuccessOverlay` - Full-screen success confirmation overlay (GYM-37)
   - Dark semi-transparent background with pulsing green check icon
   - Auto-dismiss after 2s or tap to dismiss
-  - Used for punch and payment confirmations
+  - Used for punch, payment, and PDF export confirmations
+- `DateRangeSelector` - Date range picker with presets and custom range (MAT-92)
+  - Radio buttons for Last 30 days, Last 3 months, All time, Custom
+  - Custom date inputs with validation (start ≤ end, no future dates)
+- `ExportModal` - Three-screen modal for PDF export (MAT-92)
+  - Screen 1: Date range selection, Screen 2: Generating, Screen 3: Success
+  - Fetches data from API, generates PDF client-side, shows success overlay
+- `ExportClientPDFButton` - Trigger button for single client PDF export (MAT-92)
+- `ExportAllClientsButton` - Trigger button for all clients summary PDF export (MAT-92)
 - `AuditTimeline` - Timeline component with month grouping and sticky headers (GYM-31)
 - `AuditEventItem` - Individual audit event with icons and rich formatting (GYM-31)
 - `Toast` - Reusable toast notification with auto-dismiss and optional undo button (GYM-30)
@@ -718,6 +812,23 @@ From PRD requirements:
   - Logs PAYMENT_ADD with full credit breakdown to audit trail
   - Stores rate_at_payment for historical tracking
   - Returns: `{ payment, newBalance, previousBalance, newCredit, previousCredit, creditUsed, creditAdded }`
+
+**PDF Export** (`app/api/clients/[id]/export-data/`, `app/api/clients/export-all/`):
+- `GET /api/clients/[id]/export-data?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` - Fetch client PDF data
+  - Query params: `startDate`, `endDate` (optional, for date range filtering)
+  - Fetches client, punches, payments filtered by date range
+  - Enriches data with credit information from audit logs
+  - Fetches trainer brand settings
+  - Calculates amount due if balance is negative
+  - Returns: `ClientPDFData` (client info, trainer brand, punches, payments, balance)
+
+- `GET /api/clients/export-all?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` - Fetch all clients summary data
+  - Query params: `startDate`, `endDate` (optional, for future date filtering)
+  - Fetches all clients (exclude deleted)
+  - Calculates summary statistics (total clients, classes, payments, outstanding)
+  - Sorts clients by balance (negative first)
+  - Fetches trainer brand settings
+  - Returns: `AllClientsPDFData` (trainer brand, summary stats, clients list)
 
 **Note**: All protected endpoints check session via `getSession()` and return 401 if not authenticated. Punch and payment endpoints are transaction-safe - they rollback on failure.
 
@@ -972,14 +1083,15 @@ See `prd.md` for full product requirements. Key points:
 
 ## Next Steps / Roadmap
 
-### Backlog Features
-**PDF Export System** (Low Priority in Linear Backlog)
-- Install jsPDF library
-- Per-client PDF export (statement with punches, payments, balance)
-- All-clients summary PDF export
-- Date range selector for filtering
-- File naming: `[ClientName]_Statement_[Date].pdf`
-- Currently showing as disabled button on client detail page
+### Recently Completed
+**PDF Export System** (MAT-92, MAT-93, MAT-94, MAT-95) ✅ **Complete**
+- ✅ jsPDF library installed
+- ✅ Per-client PDF export (statement with punches, payments, balance)
+- ✅ All-clients summary PDF export
+- ✅ Date range selector for filtering (Last 30 days, Last 3 months, All time, Custom)
+- ✅ File naming: `{ClientName}_Statement_{Date}.pdf` and `All_Clients_Summary_{Date}.pdf`
+- ✅ Client-side PDF generation for offline PWA support
+- ✅ Brand settings integration with fallback placeholders
 
 ### Future Enhancements (Post-MVP)
 - Rate limiting on auth endpoints

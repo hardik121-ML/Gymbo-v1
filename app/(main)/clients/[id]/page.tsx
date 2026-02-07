@@ -8,6 +8,7 @@ import { ClientDetailActions } from '@/components/ClientDetailActions'
 import { ClientBalanceCard } from '@/components/ClientBalanceCard'
 import { PunchCard } from '@/components/PunchCard'
 import { LogPaymentButton } from '@/components/LogPaymentButton'
+import { ExportClientPDFButton } from '@/components/ExportClientPDFButton'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -223,6 +224,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
               ✏️ Edit Client
             </Button>
           </Link>
+          <ExportClientPDFButton clientId={client.id} clientName={client.name} />
         </div>
       </MobileLayout>
 

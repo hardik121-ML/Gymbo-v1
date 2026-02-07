@@ -8,14 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { FormSkeleton } from '@/components/LoadingSkeletons'
+import { generateClientPDF } from '@/lib/pdf/generateClientPDF'
+import type { ClientPDFData } from '@/lib/pdf/types'
 
 interface FormData {
   brand_name: string
@@ -43,7 +38,6 @@ export default function BrandSettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [showPreviewDialog, setShowPreviewDialog] = useState(false)
 
   // Fetch current trainer data on mount
   useEffect(() => {
@@ -69,6 +63,57 @@ export default function BrandSettingsPage() {
     }
     fetchTrainer()
   }, [])
+
+  const handlePreviewStatement = () => {
+    // Create sample PDF data to show how brand settings will appear
+    const today = new Date().toISOString().split('T')[0]
+    const lastMonth = new Date()
+    lastMonth.setMonth(lastMonth.getMonth() - 1)
+    const lastMonthStr = lastMonth.toISOString().split('T')[0]
+
+    const sampleData: ClientPDFData = {
+      client: {
+        name: 'Sample Client',
+        phone: '+91 9876543210',
+      },
+      trainer: {
+        brand_name: formData.brand_name || null,
+        brand_address: formData.brand_address || null,
+        brand_phone: formData.brand_phone || null,
+        brand_email: formData.brand_email || null,
+      },
+      dateRange: {
+        start: lastMonthStr,
+        end: today,
+        label: 'Last 30 days',
+      },
+      punches: [
+        { punch_date: today, paid_with_credit: false },
+        { punch_date: lastMonthStr, paid_with_credit: false },
+      ],
+      payments: [
+        {
+          payment_date: lastMonthStr,
+          amount: 800000, // Rs. 8,000
+          classes_added: 10,
+          rate_at_payment: 80000, // Rs. 800
+        },
+      ],
+      balance: {
+        current: 8,
+        credit: 0,
+        amountDue: 0,
+      },
+    }
+
+    // Generate the PDF
+    generateClientPDF(sampleData)
+
+    // Vibrate if supported
+    if (navigator.vibrate) {
+      navigator.vibrate(50)
+    }
+  }
 
   const validateForm = (): boolean => {
     const errors: ValidationErrors = {}
@@ -247,11 +292,14 @@ export default function BrandSettingsPage() {
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => setShowPreviewDialog(true)}
+                onClick={handlePreviewStatement}
                 className="text-sm text-primary underline hover:no-underline"
               >
-                Preview how this appears on statements...
+                📄 Preview sample statement PDF
               </button>
+              <p className="text-xs text-muted-foreground mt-1">
+                Downloads a sample PDF showing how your brand info will appear
+              </p>
             </div>
 
             {/* Action buttons */}
@@ -273,24 +321,6 @@ export default function BrandSettingsPage() {
           </form>
         </CardContent>
       </Card>
-
-      {/* Preview Dialog */}
-      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Statement Preview</DialogTitle>
-            <DialogDescription>
-              PDF export feature is currently under development. Your brand settings will appear on
-              client statements once this feature is implemented.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="pt-4">
-            <Button onClick={() => setShowPreviewDialog(false)} className="w-full">
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </MobileLayout>
   )
 }

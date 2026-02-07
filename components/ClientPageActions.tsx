@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ImportContactsButton } from '@/components/ImportContactsButton'
+import { ExportAllClientsButton } from '@/components/ExportAllClientsButton'
 import { useRouter } from 'next/navigation'
 
 export function ClientPageActions() {
@@ -22,6 +23,8 @@ export function ClientPageActions() {
       </Link>
 
       <ImportContactsButton onImportComplete={handleImportComplete} />
+
+      <ExportAllClientsButton />
     </div>
   )
 }
