@@ -218,11 +218,11 @@ npx supabase gen types typescript --project-id <project-id> > types/database.typ
 
 Core tables:
 - `trainers` - Trainer profiles (id matches auth.users.id, name, phone - both required, phone is unique)
-- `clients` - Clients belonging to trainers (name, phone, current_rate, balance, credit_balance, is_deleted)
+- `clients` - Clients belonging to trainers (name, phone, current_rate, balance, credit_balance, is_deleted, rate_updated_at)
 - `punches` - Class records (client_id, punch_date, is_deleted for soft delete)
 - `payments` - Payment records (client_id, amount, classes_added, rate_at_payment)
-- `rate_history` - Historical rate changes (client_id, rate, effective_date)
 - `audit_log` - Audit trail of all actions (client_id, action, details JSON)
+- ~~`rate_history`~~ - **REMOVED** in migration 010 (historical rates tracked via payments.rate_at_payment and audit_log)
 
 **Balance Calculation**:
 - Balance = (sum of classes from payments) - (count of active punches)
@@ -248,22 +248,23 @@ Core tables:
 - `007_remove_duplicate_triggers.sql` - Remove duplicate audit triggers (keeps API code logging only)
 - `008_add_client_soft_delete.sql` - Add is_deleted column to clients table (GYM-30)
 - `009_migrate_to_phone_auth.sql` - Phone + OTP authentication migration (phone required and unique)
+- `010_remove_rate_history_table.sql` - Remove rate_history table, add rate_updated_at to clients (simplifies architecture)
 
 ### Audit Log Architecture
 
 **Important**: The audit log system was refactored to eliminate duplicate entries and add credit tracking.
 
-**Current Implementation** (as of migrations 006 & 007):
+**Current Implementation** (as of migrations 006, 007 & 010):
 - **API Code Logging**: All audit logs are created manually in API routes via `supabase.from('audit_log').insert(...)`
-- **Database Trigger**: Only `trigger_log_rate_change` remains (fires on `rate_history` INSERT)
-- **No Duplicates**: Removed triggers for punches, payments, and punch deletions to prevent double-logging
+- **Database Triggers**: None (all removed as of migration 010)
+- **No Duplicates**: No triggers to prevent double-logging
 
 **Audit Log Actions**:
 - `PUNCH_ADD` - API code logs with: punch_id, punch_date, paid_with_credit, credit_used, previous_credit, new_credit, balance changes
 - `PUNCH_EDIT` - API code logs with: punch_id, old_date, new_date (no balance change)
 - `PUNCH_REMOVE` - API code logs with: punch_id, punch_date, balance changes
 - `PAYMENT_ADD` - API code logs with: payment_id, amount, classes_added, rate_at_payment, payment_date, credit_used, credit_added, previous_credit, new_credit, balance changes
-- `RATE_CHANGE` - Database trigger logs with: rate_history_id, new_rate, effective_date (no balance change)
+- `RATE_CHANGE` - API code logs with: new_rate, old_rate, effective_date (no balance change)
 - `CLIENT_UPDATE` - API code logs with: previous/updated objects containing name/phone (no balance change)
 
 **Why API Code Over Triggers?**
@@ -649,10 +650,9 @@ From PRD requirements:
 - `PATCH /api/clients/[id]/rate` - Change client rate (GYM-24)
   - Body: `{ rate, effectiveDate }` (rate in rupees, converted to paise)
   - Validates: rate ₹100-₹10,000, valid date
-  - Creates entry in rate_history table
-  - Updates client.current_rate
-  - Logs RATE_CHANGE to audit trail
-  - Returns: `{ client, rateHistory }`
+  - Updates client.current_rate and rate_updated_at
+  - Logs RATE_CHANGE to audit trail (includes old_rate and new_rate)
+  - Returns: `{ client, message }`
 
 **Punches** (`app/api/clients/[id]/punches/` and `app/api/punches/[id]/`):
 - `POST /api/clients/[id]/punches` - Record a class (GYM-26 credit support)

@@ -55,7 +55,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     // Verify client exists and belongs to trainer
     const { data: existingClient, error: fetchError } = await supabase
       .from('clients')
-      .select('id, current_rate, trainer_id')
+      .select('id, current_rate, rate_updated_at, trainer_id')
       .eq('id', clientId)
       .eq('trainer_id', user.id)
       .single()
@@ -80,11 +80,12 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
-    // Update client's current rate
+    // Update client's current rate and rate_updated_at
     const { data: updatedClient, error: updateError } = await supabase
       .from('clients')
       .update({
         current_rate: rateInPaise,
+        rate_updated_at: effectiveDate,
         updated_at: new Date().toISOString()
       })
       .eq('id', clientId)
@@ -99,48 +100,41 @@ export async function PATCH(request: Request, context: RouteContext) {
       )
     }
 
-    // Add entry to rate_history
-    const { data: rateHistoryEntry, error: historyError } = await supabase
-      .from('rate_history')
+    // Manually create audit log entry (follows pattern from punches/payments)
+    const { error: auditError } = await supabase
+      .from('audit_log')
       .insert({
+        trainer_id: user.id,
         client_id: clientId,
-        rate: rateInPaise,
-        effective_date: effectiveDate,
+        action: 'RATE_CHANGE',
+        details: {
+          new_rate: rateInPaise,
+          old_rate: oldRate,
+          effective_date: effectiveDate,
+        },
+        previous_balance: null,
+        new_balance: null,
       })
-      .select()
-      .single()
 
-    if (historyError) {
-      console.error('Error creating rate history:', historyError)
+    if (auditError) {
+      console.error('Error creating audit log:', auditError)
       // Try to rollback the client update
       await supabase
         .from('clients')
-        .update({ current_rate: oldRate })
+        .update({
+          current_rate: oldRate,
+          rate_updated_at: existingClient.rate_updated_at
+        })
         .eq('id', clientId)
 
       return NextResponse.json(
-        { error: 'Failed to create rate history' },
+        { error: 'Failed to create audit log' },
         { status: 500 }
       )
     }
 
-    // Note: Audit log is automatically created by the trigger_log_rate_change trigger
-    // No need to manually insert into audit_log
-
-    // Fetch all rate history for this client
-    const { data: rateHistory, error: historyFetchError } = await supabase
-      .from('rate_history')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('effective_date', { ascending: false })
-
-    if (historyFetchError) {
-      console.error('Error fetching rate history:', historyFetchError)
-    }
-
     return NextResponse.json({
       client: updatedClient,
-      rateHistory: rateHistory || [],
       message: `Rate changed from ₹${oldRate / 100} to ₹${rateInPaise / 100} effective ${new Date(effectiveDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
     })
   } catch (error) {

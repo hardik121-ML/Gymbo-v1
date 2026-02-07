@@ -60,6 +60,7 @@ export async function POST(request: Request) {
         phone: phone?.trim() || null,
         current_rate: rateInPaise,
         balance: 0, // New clients start with 0 balance
+        rate_updated_at: new Date().toISOString(),
       })
       .select()
       .single()
@@ -70,20 +71,6 @@ export async function POST(request: Request) {
         { error: 'Failed to create client' },
         { status: 500 }
       )
-    }
-
-    // Create initial rate history entry
-    const { error: rateHistoryError } = await supabase
-      .from('rate_history')
-      .insert({
-        client_id: client.id,
-        rate: rateInPaise,
-        effective_date: new Date().toISOString().split('T')[0],
-      })
-
-    if (rateHistoryError) {
-      console.error('Error creating rate history:', rateHistoryError)
-      // Don't fail the whole request, just log it
     }
 
     // Log to audit trail

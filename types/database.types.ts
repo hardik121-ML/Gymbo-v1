@@ -40,6 +40,7 @@ export type Database = {
           balance: number
           credit_balance: number
           is_deleted: boolean
+          rate_updated_at: string
           created_at: string
           updated_at: string
         }
@@ -52,6 +53,7 @@ export type Database = {
           balance?: number
           credit_balance?: number
           is_deleted?: boolean
+          rate_updated_at?: string
           created_at?: string
           updated_at?: string
         }
@@ -64,6 +66,7 @@ export type Database = {
           balance?: number
           credit_balance?: number
           is_deleted?: boolean
+          rate_updated_at?: string
           created_at?: string
           updated_at?: string
         }
@@ -140,38 +143,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "payments_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      rate_history: {
-        Row: {
-          id: string
-          client_id: string
-          rate: number
-          effective_date: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          rate: number
-          effective_date: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          rate?: number
-          effective_date?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rate_history_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
