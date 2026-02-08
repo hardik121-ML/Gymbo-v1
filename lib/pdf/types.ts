@@ -64,7 +64,7 @@ export interface AllClientsPDFData {
   }>
 }
 
-export type DateRangePreset = 'last30' | 'last90' | 'allTime' | 'custom'
+export type DateRangePreset = 'thisMonth' | 'lastMonth' | 'last3Months' | 'custom'
 
 export interface DateRangeConfig {
   startDate: string

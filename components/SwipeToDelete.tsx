@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClientCard } from './ClientCard'
 import { Button } from '@/components/ui/button'
 import { Toast } from '@/components/Toast'
 import {
@@ -13,23 +12,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-interface SwipeableClientCardProps {
-  id: string
-  name: string
-  balance: number
-  rate: number
-  credit?: number
+interface SwipeToDeleteProps {
+  clientId: string
+  clientName: string
+  children: ReactNode
   onDelete?: (clientId: string) => void
 }
 
-export function SwipeableClientCard({
-  id,
-  name,
-  balance,
-  rate,
-  credit,
+export function SwipeToDelete({
+  clientId,
+  clientName,
+  children,
   onDelete,
-}: SwipeableClientCardProps) {
+}: SwipeToDeleteProps) {
   const router = useRouter()
   const [translateX, setTranslateX] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
@@ -43,7 +38,7 @@ export function SwipeableClientCard({
   const currentTranslateX = useRef(0)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const SWIPE_THRESHOLD = 80 // 80px to reveal delete button
+  const SWIPE_THRESHOLD = 80
   const DELETE_BUTTON_WIDTH = 80
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -54,12 +49,8 @@ export function SwipeableClientCard({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isSwiping) return
-
-    const currentX = e.touches[0].clientX
-    const diff = currentX - touchStartX.current
+    const diff = e.touches[0].clientX - touchStartX.current
     const newTranslateX = currentTranslateX.current + diff
-
-    // Only allow left swipe (negative values)
     if (newTranslateX < 0) {
       setTranslateX(Math.max(newTranslateX, -DELETE_BUTTON_WIDTH))
     }
@@ -67,19 +58,15 @@ export function SwipeableClientCard({
 
   const handleTouchEnd = () => {
     setIsSwiping(false)
-
-    // If swiped beyond threshold, show delete button
     if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
       setTranslateX(-DELETE_BUTTON_WIDTH)
       setShowDeleteButton(true)
     } else {
-      // Snap back
       setTranslateX(0)
       setShowDeleteButton(false)
     }
   }
 
-  // Mouse event handlers for desktop testing
   const handleMouseDown = (e: React.MouseEvent) => {
     touchStartX.current = e.clientX
     currentTranslateX.current = translateX
@@ -88,12 +75,8 @@ export function SwipeableClientCard({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isSwiping) return
-
-    const currentX = e.clientX
-    const diff = currentX - touchStartX.current
+    const diff = e.clientX - touchStartX.current
     const newTranslateX = currentTranslateX.current + diff
-
-    // Only allow left swipe (negative values)
     if (newTranslateX < 0) {
       setTranslateX(Math.max(newTranslateX, -DELETE_BUTTON_WIDTH))
     }
@@ -101,15 +84,11 @@ export function SwipeableClientCard({
 
   const handleMouseUp = () => {
     if (!isSwiping) return
-
     setIsSwiping(false)
-
-    // If swiped beyond threshold, show delete button
     if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
       setTranslateX(-DELETE_BUTTON_WIDTH)
       setShowDeleteButton(true)
     } else {
-      // Snap back
       setTranslateX(0)
       setShowDeleteButton(false)
     }
@@ -123,34 +102,21 @@ export function SwipeableClientCard({
 
   const handleConfirmDelete = async () => {
     setIsDeleting(true)
-
     try {
-      const response = await fetch(`/api/clients/${id}`, {
+      const response = await fetch(`/api/clients/${clientId}`, {
         method: 'DELETE',
       })
-
       if (!response.ok) {
         const data = await response.json()
         throw new Error(data.error || 'Failed to delete client')
       }
-
-      // Call onDelete callback if provided
-      onDelete?.(id)
-
-      // Close dialog
+      onDelete?.(clientId)
       setShowConfirmDialog(false)
-
-      // Store deleted client ID for undo
-      setDeletedClientId(id)
-
-      // Show toast with undo
+      setDeletedClientId(clientId)
       setShowToast(true)
-
-      // Refresh the page to update the list
       router.refresh()
     } catch (error) {
       console.error('Error deleting client:', error)
-      alert('Failed to delete client. Please try again.')
     } finally {
       setIsDeleting(false)
     }
@@ -158,48 +124,27 @@ export function SwipeableClientCard({
 
   const handleUndo = async () => {
     if (!deletedClientId) return
-
     try {
-      // Restore the client by setting is_deleted = false
       const response = await fetch(`/api/clients/${deletedClientId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          is_deleted: false,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_deleted: false }),
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to undo delete')
-      }
-
-      // Close toast
+      if (!response.ok) throw new Error('Failed to undo delete')
       setShowToast(false)
       setDeletedClientId(null)
-
-      // Refresh the page to show the restored client
       router.refresh()
     } catch (error) {
       console.error('Error undoing delete:', error)
-      alert('Failed to undo deletion. Please try again.')
     }
-  }
-
-  const handleToastClose = () => {
-    setShowToast(false)
-    setDeletedClientId(null)
   }
 
   const handleCancelDelete = () => {
     setShowConfirmDialog(false)
-    // Snap back
     setTranslateX(0)
     setShowDeleteButton(false)
   }
 
-  // Close delete button when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -211,28 +156,27 @@ export function SwipeableClientCard({
         setShowDeleteButton(false)
       }
     }
-
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showDeleteButton])
 
   return (
     <>
-      <div ref={containerRef} className="relative overflow-hidden">
+      <div ref={containerRef} className="relative overflow-hidden rounded-xl">
         {/* Delete Button Behind */}
         <div
-          className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-destructive"
+          className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-destructive rounded-r-xl"
           style={{ width: `${DELETE_BUTTON_WIDTH}px` }}
         >
           <button
             onClick={handleDeleteClick}
-            className="w-full h-full flex items-center justify-center text-white font-semibold"
+            className="w-full h-full flex items-center justify-center text-destructive-foreground font-bold text-xs lowercase tracking-wider"
           >
-            Delete
+            delete
           </button>
         </div>
 
-        {/* Client Card (Swipeable) */}
+        {/* Swipeable Content */}
         <div
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -244,17 +188,10 @@ export function SwipeableClientCard({
           style={{
             transform: `translateX(${translateX}px)`,
             transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            cursor: 'grab',
             userSelect: 'none',
           }}
         >
-          <ClientCard
-            id={id}
-            name={name}
-            balance={balance}
-            rate={rate}
-            credit={credit}
-          />
+          {children}
         </div>
       </div>
 
@@ -262,12 +199,11 @@ export function SwipeableClientCard({
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Client</DialogTitle>
+            <DialogTitle>delete client</DialogTitle>
             <DialogDescription>
-              Delete {name}? This can&apos;t be undone.
+              delete {clientName}? this action can be undone.
             </DialogDescription>
           </DialogHeader>
-
           <div className="flex gap-3 mt-4">
             <Button
               variant="outline"
@@ -275,7 +211,7 @@ export function SwipeableClientCard({
               disabled={isDeleting}
               className="flex-1"
             >
-              Cancel
+              cancel
             </Button>
             <Button
               variant="destructive"
@@ -283,18 +219,18 @@ export function SwipeableClientCard({
               disabled={isDeleting}
               className="flex-1"
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {isDeleting ? 'deleting...' : 'delete'}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Toast Notification with Undo */}
+      {/* Undo Toast */}
       {showToast && (
         <Toast
-          message="Client deleted"
+          message="client deleted"
           onUndo={handleUndo}
-          onClose={handleToastClose}
+          onClose={() => { setShowToast(false); setDeletedClientId(null) }}
           duration={4000}
         />
       )}

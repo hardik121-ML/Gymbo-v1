@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { MobileLayout } from '@/components/MobileLayout'
+import { AppShell } from '@/components/AppShell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { FormSkeleton } from '@/components/LoadingSkeletons'
-import { generateClientPDF } from '@/lib/pdf/generateClientPDF'
+import { downloadClientPDF } from '@/lib/pdf/generateClientPDF'
 import type { ClientPDFData } from '@/lib/pdf/types'
 
 interface FormData {
@@ -106,8 +106,8 @@ export default function BrandSettingsPage() {
       },
     }
 
-    // Generate the PDF
-    generateClientPDF(sampleData)
+    // Generate and download the PDF
+    downloadClientPDF(sampleData)
 
     // Vibrate if supported
     if (navigator.vibrate) {
@@ -183,14 +183,14 @@ export default function BrandSettingsPage() {
 
   if (isLoading) {
     return (
-      <MobileLayout title="Brand Settings" showBackButton={true} backHref="/settings">
+      <AppShell title="Brand Settings" showBackButton={true} backHref="/settings">
         <FormSkeleton />
-      </MobileLayout>
+      </AppShell>
     )
   }
 
   return (
-    <MobileLayout title="Brand Settings" showBackButton={true} backHref="/settings">
+    <AppShell title="Brand Settings" showBackButton={true} backHref="/settings">
       <Card>
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -295,7 +295,7 @@ export default function BrandSettingsPage() {
                 onClick={handlePreviewStatement}
                 className="text-sm text-primary underline hover:no-underline"
               >
-                📄 Preview sample statement PDF
+                preview sample statement pdf
               </button>
               <p className="text-xs text-muted-foreground mt-1">
                 Downloads a sample PDF showing how your brand info will appear
@@ -321,6 +321,6 @@ export default function BrandSettingsPage() {
           </form>
         </CardContent>
       </Card>
-    </MobileLayout>
+    </AppShell>
   )
 }

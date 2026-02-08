@@ -31,8 +31,8 @@ function getBalanceStatusText(balance: number): string {
 
 function getBalanceColor(balance: number): string {
   if (balance < 0) return 'text-destructive'
-  if (balance <= 3) return 'text-yellow-500'
-  return 'text-green-500'
+  if (balance <= 3) return 'text-status-warning'
+  return 'text-status-healthy'
 }
 
 export function ClientBalanceCard({
@@ -56,7 +56,7 @@ export function ClientBalanceCard({
           {getBalanceStatusText(balance)}
         </p>
         {creditBalance > 0 && (
-          <Badge variant="secondary" className="mb-4 bg-blue-500/10 border-blue-500/50 text-blue-400">
+          <Badge variant="secondary" className="mb-4 bg-primary/10 border-primary/50 text-primary">
             💳 Credit: {formatCurrency(creditBalance)}
           </Badge>
         )}

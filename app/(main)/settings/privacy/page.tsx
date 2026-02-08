@@ -1,10 +1,10 @@
-import { MobileLayout } from '@/components/MobileLayout'
+import { AppShell } from '@/components/AppShell'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function PrivacyPage() {
   return (
-    <MobileLayout title="Privacy & Security" showBackButton={true} backHref="/settings">
+    <AppShell title="privacy & security" showBackButton={true} backHref="/settings">
       <Card>
         <CardContent className="p-6">
           <Alert>
@@ -14,6 +14,6 @@ export default function PrivacyPage() {
           </Alert>
         </CardContent>
       </Card>
-    </MobileLayout>
+    </AppShell>
   )
 }

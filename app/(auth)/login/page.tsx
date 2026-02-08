@@ -2,270 +2,180 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { NumericKeypad } from '@/components/NumericKeypad'
+import { ArrowRight, ArrowLeft, Grab } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default function LoginPage() {
   const router = useRouter()
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
-
-  // Phone step state
   const [phone, setPhone] = useState('')
-
-  // OTP step state
   const [otp, setOtp] = useState('')
-
-  // UI state
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  // Format phone number as user types
-  const formatPhoneNumber = (value: string) => {
-    const digits = value.replace(/\D/g, '')
-    return digits.slice(0, 10)
+  const handleNumPress = (digit: string) => {
+    if (step === 'phone') {
+      if (phone.length < 10) setPhone((prev) => prev + digit)
+    } else {
+      if (otp.length < 6) {
+        const newOtp = otp + digit
+        setOtp(newOtp)
+        if (newOtp.length === 6) {
+          handleVerifyOTP(newOtp)
+        }
+      }
+    }
   }
 
-  const handleSendOTP = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  const handleDelete = () => {
+    if (step === 'phone') setPhone((prev) => prev.slice(0, -1))
+    else setOtp((prev) => prev.slice(0, -1))
+  }
 
-    // Validate phone (10 digits starting with 6-9)
+  const handleSendOTP = async () => {
+    setError('')
     if (!/^[6-9]\d{9}$/.test(phone)) {
-      setError('Please enter a valid 10-digit mobile number')
+      setError('please enter a valid 10-digit mobile number')
       return
     }
 
     setIsLoading(true)
-
     try {
-      const formattedPhone = `+91${phone}`
-
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          phone: formattedPhone,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: `+91${phone}` }),
       })
-
       const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send OTP')
-      }
-
-      // Move to OTP verification step
+      if (!response.ok) throw new Error(data.error || 'failed to send otp')
       setStep('otp')
       setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send OTP')
+      setError(err instanceof Error ? err.message : 'failed to send otp')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleVerifyOTP = async (otpValue: string) => {
     setError('')
-
-    // Validate OTP (6 digits)
-    if (!/^\d{6}$/.test(otp)) {
-      setError('Please enter a valid 6-digit OTP')
-      return
-    }
-
     setIsLoading(true)
-
     try {
-      const formattedPhone = `+91${phone}`
-
       const response = await fetch('/api/auth/verify-otp', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          phone: formattedPhone,
-          otp,
-          // Note: name is not needed for login, only for signup
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: `+91${phone}`, otp: otpValue }),
       })
-
       const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Invalid OTP')
-      }
-
-      // Redirect to main app
-      router.push('/clients')
+      if (!response.ok) throw new Error(data.error || 'invalid otp')
+      router.push('/dashboard')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to verify OTP')
+      setError(err instanceof Error ? err.message : 'failed to verify otp')
+      setOtp('')
       setIsLoading(false)
     }
   }
 
-  const handleResendOTP = async () => {
+  const handleBack = () => {
+    setStep('phone')
+    setOtp('')
     setError('')
-    setIsLoading(true)
-
-    try {
-      const formattedPhone = `+91${phone}`
-
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          phone: formattedPhone,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to resend OTP')
-      }
-
-      setError('')
-      // You could show a success toast here
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to resend OTP')
-    } finally {
-      setIsLoading(false)
-    }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="max-w-md w-full">
-        <CardHeader className="text-center">
-          <CardTitle className="text-4xl mb-2">Gymbo</CardTitle>
-          <CardDescription className="text-lg">
-            {step === 'phone' ? 'Welcome back' : 'Enter verification code'}
-          </CardDescription>
-        </CardHeader>
+    <div className="flex-1 flex flex-col items-center relative w-full px-6 pt-safe-top pb-safe-bottom min-h-screen">
+      {/* Header Section */}
+      <div className="flex-1 flex flex-col items-center justify-center w-full gap-2">
+        {/* Logo */}
+        <div className="w-16 h-16 bg-foreground rounded-full flex items-center justify-center mb-4 border border-foreground text-background">
+          <Grab size={32} strokeWidth={1.5} />
+        </div>
 
-        <CardContent>
-          {/* Error Message */}
-          {error && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+        <div className="text-center space-y-2">
+          <h1 className="text-xl font-bold tracking-tight lowercase">
+            trainer access
+          </h1>
+          <p className="text-foreground/60 text-xs tracking-[0.2em] lowercase">
+            {step === 'phone' ? 'enter mobile number' : 'enter passcode'}
+          </p>
+        </div>
 
-          {/* Step 1: Phone Number Entry */}
-          {step === 'phone' && (
-            <form onSubmit={handleSendOTP} className="space-y-4">
-              {/* Phone Field */}
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <div className="flex gap-2">
-                  <div className="flex items-center justify-center px-3 border border-input rounded-md bg-muted text-muted-foreground">
-                    +91
-                  </div>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="9876543210"
-                    value={phone}
-                    onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
-                    maxLength={10}
-                    inputMode="numeric"
-                    required
-                    autoFocus
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Enter your registered mobile number
-                </p>
-              </div>
+        {/* Error */}
+        {error && (
+          <p className="text-xs text-foreground/80 bg-foreground/10 px-4 py-2 rounded-full mt-2">
+            {error}
+          </p>
+        )}
 
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                disabled={isLoading || phone.length !== 10}
-                className="w-full"
-                size="lg"
-              >
-                {isLoading ? 'Sending OTP...' : 'Send OTP'}
-              </Button>
-
-              {/* Signup Link */}
-              <p className="text-center text-sm text-muted-foreground">
-                Don&apos;t have an account?{' '}
-                <a href="/signup" className="text-primary hover:underline font-medium">
-                  Sign up
-                </a>
-              </p>
-            </form>
-          )}
-
-          {/* Step 2: OTP Verification */}
-          {step === 'otp' && (
-            <form onSubmit={handleVerifyOTP} className="space-y-4">
-              {/* Info Text */}
-              <div className="text-center text-sm text-muted-foreground mb-4">
-                We sent a 6-digit code to<br />
-                <strong className="text-foreground">+91 {phone}</strong>
-                <button
-                  type="button"
-                  onClick={() => setStep('phone')}
-                  className="ml-2 text-primary hover:underline"
-                >
-                  Change
-                </button>
-              </div>
-
-              {/* OTP Input */}
-              <div className="space-y-2">
-                <Label htmlFor="otp">Verification Code</Label>
-                <Input
-                  id="otp"
-                  type="text"
-                  placeholder="000000"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  maxLength={6}
-                  inputMode="numeric"
-                  className="text-center text-2xl tracking-widest"
-                  required
-                  autoFocus
+        {/* Input Display */}
+        <div className="h-16 flex items-center justify-center my-4">
+          {step === 'phone' ? (
+            <div className="text-2xl font-mono tracking-wider font-bold border-b-2 border-foreground/20 px-4 py-2">
+              {phone || (
+                <span className="opacity-30">000-000-0000</span>
+              )}
+            </div>
+          ) : (
+            <div className="flex gap-4">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    'w-3 h-3 rounded-full border-2 border-foreground transition-all duration-200',
+                    otp.length > i
+                      ? 'bg-foreground scale-100 opacity-100'
+                      : 'bg-transparent scale-75 opacity-30'
+                  )}
                 />
-              </div>
-
-              {/* Verify Button */}
-              <Button
-                type="submit"
-                disabled={isLoading || otp.length !== 6}
-                className="w-full"
-                size="lg"
-              >
-                {isLoading ? 'Verifying...' : 'Verify & Log In'}
-              </Button>
-
-              {/* Resend OTP */}
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={handleResendOTP}
-                  disabled={isLoading}
-                  className="text-sm text-primary hover:underline"
-                >
-                  Didn&apos;t receive code? Resend
-                </button>
-              </div>
-            </form>
+              ))}
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Mode Toggle / Back */}
+        {step === 'phone' ? (
+          <a
+            href="/signup"
+            className="text-[10px] font-mono lowercase underline decoration-dashed underline-offset-4 opacity-60 hover:opacity-100 transition-opacity"
+          >
+            new to gymbo? sign up
+          </a>
+        ) : (
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 text-[10px] font-mono lowercase opacity-60 hover:opacity-100 transition-opacity"
+          >
+            <ArrowLeft size={16} strokeWidth={1.5} />
+            back
+          </button>
+        )}
+      </div>
+
+      {/* Keypad */}
+      <div className="w-full pb-8">
+        <NumericKeypad onPress={handleNumPress} onDelete={handleDelete} />
+
+        {/* Continue Button (Phone Step Only) */}
+        {step === 'phone' && (
+          <div className="mt-8 px-8">
+            <button
+              onClick={handleSendOTP}
+              disabled={isLoading || phone.length < 10}
+              className={cn(
+                'w-full h-14 bg-foreground text-background rounded-full font-bold lowercase tracking-wider flex items-center justify-center gap-2 transition-all text-sm',
+                phone.length < 10
+                  ? 'opacity-50 cursor-not-allowed'
+                  : 'hover:opacity-90 shadow-xl'
+              )}
+            >
+              {isLoading ? 'sending...' : 'continue'}
+              {!isLoading && <ArrowRight size={16} />}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

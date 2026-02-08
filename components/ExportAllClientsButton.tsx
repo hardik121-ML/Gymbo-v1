@@ -1,27 +1,14 @@
-/**
- * Export All Clients Button
- *
- * Trigger button for all clients summary PDF export.
- * Opens ExportModal in "all" mode.
- */
-
-'use client'
-
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { ExportModal } from '@/components/ExportModal'
+import Link from 'next/link'
+import { FileText } from 'lucide-react'
 
 export function ExportAllClientsButton() {
-  const [showModal, setShowModal] = useState(false)
-
   return (
-    <>
-      <Button variant="outline" className="w-full" size="lg" onClick={() => setShowModal(true)}>
-        📊 Export All
-      </Button>
-      {showModal && (
-        <ExportModal mode="all" open={showModal} onClose={() => setShowModal(false)} />
-      )}
-    </>
+    <Link
+      href="/clients/export"
+      className="flex items-center gap-2 px-4 py-2 border border-foreground/10 rounded-full text-xs font-mono lowercase hover:bg-foreground/5 transition-colors"
+    >
+      <FileText size={14} strokeWidth={1.5} />
+      export all
+    </Link>
   )
 }

@@ -121,6 +121,7 @@ export async function POST(request: Request) {
       .from('clients')
       .select('phone')
       .eq('trainer_id', user.id)
+      .eq('is_deleted', false)
       .not('phone', 'is', null)
 
     if (fetchError) {

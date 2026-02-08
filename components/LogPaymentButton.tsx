@@ -1,26 +1,11 @@
 'use client'
 
-// ============================================================================
-// Log Payment Button Component
-// ============================================================================
-// Button to open payment form modal for logging client payments
-// ============================================================================
-
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { NumericKeypad } from '@/components/NumericKeypad'
 import { formatCurrency } from '@/lib/utils/currency'
 import { SuccessOverlay } from '@/components/SuccessOverlay'
+import { CreditCard, Check, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface LogPaymentButtonProps {
   clientId: string
@@ -50,8 +35,8 @@ export function LogPaymentButton({
   const [paymentDate, setPaymentDate] = useState('')
   const [isManualClasses, setIsManualClasses] = useState(false)
   const [useCredit, setUseCredit] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
 
-  // Get today's date in YYYY-MM-DD format
   const getTodayDate = () => {
     const today = new Date()
     return today.toISOString().split('T')[0]
@@ -62,14 +47,9 @@ export function LogPaymentButton({
     if (!isManualClasses && amount) {
       const amountNum = parseFloat(amount)
       if (!isNaN(amountNum) && amountNum > 0) {
-        const rateInRupees = currentRate / 100
         const amountInPaise = Math.round(amountNum * 100)
-
-        // Add credit if checkbox is checked
-        const totalAmount = useCredit ? amountInPaise + currentCredit : amountInPaise
-        const totalInRupees = totalAmount / 100
-
-        const calculatedClasses = Math.floor(totalInRupees / rateInRupees)
+        const totalPaise = useCredit ? amountInPaise + currentCredit : amountInPaise
+        const calculatedClasses = Math.floor(totalPaise / currentRate)
         setClassesAdded(calculatedClasses.toString())
       } else {
         setClassesAdded('')
@@ -77,16 +57,12 @@ export function LogPaymentButton({
     }
   }, [amount, currentRate, isManualClasses, useCredit, currentCredit])
 
-  // Calculate new balance preview
   const getNewBalance = () => {
     const classes = parseInt(classesAdded)
-    if (!isNaN(classes)) {
-      return currentBalance + classes
-    }
+    if (!isNaN(classes)) return currentBalance + classes
     return currentBalance
   }
 
-  // Calculate how much credit will be used
   const getCreditUsed = () => {
     if (!useCredit) return 0
     const amountNum = parseFloat(amount)
@@ -95,13 +71,11 @@ export function LogPaymentButton({
       const amountInPaise = Math.round(amountNum * 100)
       const totalCostOfClasses = classesNum * currentRate
       const creditNeeded = totalCostOfClasses - amountInPaise
-      // Use credit up to what's available and what's needed
       return Math.max(0, Math.min(creditNeeded, currentCredit))
     }
     return 0
   }
 
-  // Calculate credit remainder (new credit from this payment)
   const getCreditRemainder = () => {
     const amountNum = parseFloat(amount)
     const classesNum = parseInt(classesAdded)
@@ -110,13 +84,11 @@ export function LogPaymentButton({
       const creditUsed = getCreditUsed()
       const totalPaid = amountInPaise + creditUsed
       const totalCostOfClasses = classesNum * currentRate
-      const remainder = totalPaid - totalCostOfClasses
-      return remainder
+      return totalPaid - totalCostOfClasses
     }
     return 0
   }
 
-  // Calculate new credit total
   const getNewCredit = () => {
     return currentCredit - getCreditUsed() + getCreditRemainder()
   }
@@ -128,50 +100,57 @@ export function LogPaymentButton({
     setClassesAdded('')
     setIsManualClasses(false)
     setUseCredit(false)
+    setShowDetails(false)
     setError(null)
   }
 
-  const handleCloseModal = () => {
-    setShowModal(false)
-    setError(null)
+  const handleKeyPress = (digit: string) => {
+    if (digit === '.' && amount.includes('.')) return
+    if (digit === '.' && amount === '') {
+      setAmount('0.')
+      return
+    }
+    // Limit decimal places to 2
+    if (amount.includes('.')) {
+      const decimalPart = amount.split('.')[1]
+      if (decimalPart && decimalPart.length >= 2) return
+    }
+    setAmount(prev => prev + digit)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleKeyDelete = () => {
+    setAmount(prev => prev.slice(0, -1))
+  }
+
+  const handleSubmit = async () => {
     setError(null)
 
-    // Validate amount
     const amountNum = parseFloat(amount)
     if (isNaN(amountNum) || amountNum <= 0) {
-      setError('Please enter a valid amount')
+      setError('enter a valid amount')
       return
     }
 
-    // Validate classes
     const classesNum = parseInt(classesAdded)
     if (isNaN(classesNum) || classesNum < 0) {
-      setError('Classes added cannot be negative')
+      setError('classes cannot be negative')
       return
     }
 
-    // Validate date
     if (!paymentDate) {
-      setError('Please select a payment date')
+      setError('select a payment date')
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      // Convert amount to paise
       const amountInPaise = Math.round(amountNum * 100)
       const creditUsed = getCreditUsed()
 
       const response = await fetch(`/api/clients/${clientId}/payments`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: amountInPaise,
           classesAdded: classesNum,
@@ -183,29 +162,20 @@ export function LogPaymentButton({
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || 'Failed to record payment')
+        setError(data.error || 'failed to record payment')
         setIsSubmitting(false)
         return
       }
 
-      // Store classes added from response
       setClassesAddedFromResponse(data.payment.classes_added)
-
-      // Show success feedback
       setShowSuccess(true)
       setShowModal(false)
 
-      // Vibrate if supported (haptic feedback)
-      if (navigator.vibrate) {
-        navigator.vibrate(50)
-      }
-
-      // Auto-dismiss is handled by SuccessOverlay (2s)
-      // Just need to refresh after overlay dismisses
+      if (navigator.vibrate) navigator.vibrate(50)
       setIsSubmitting(false)
     } catch (err) {
       console.error('Error logging payment:', err)
-      setError('An unexpected error occurred')
+      setError('an unexpected error occurred')
       setIsSubmitting(false)
     }
   }
@@ -216,201 +186,150 @@ export function LogPaymentButton({
     router.refresh()
   }
 
-  const rateInRupees = currentRate / 100
+  const displayAmount = amount || '0'
 
   return (
     <>
-      {/* Payment Button */}
-      <Button
-        variant="outline"
+      {/* Quick Action Button */}
+      <button
         onClick={handleOpenModal}
         data-log-payment-button
-        className="w-full"
+        className="flex flex-col items-center gap-2 group"
       >
-        💰 Log Payment
-      </Button>
+        <div className="w-12 h-12 rounded-full border border-foreground/10 flex items-center justify-center group-hover:bg-foreground group-hover:text-background transition-colors">
+          <CreditCard size={24} strokeWidth={1.5} />
+        </div>
+        <span className="text-[10px] font-mono opacity-50 lowercase group-hover:opacity-100 transition-opacity">
+          pay
+        </span>
+      </button>
 
-      {/* Payment Modal */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Log Payment for {clientName}</DialogTitle>
-          </DialogHeader>
+      {/* Full-screen Payment Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-background flex flex-col screen-enter">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 h-16">
+            <button
+              onClick={() => setShowModal(false)}
+              className="text-sm font-mono lowercase opacity-60 hover:opacity-100 transition-opacity"
+            >
+              cancel
+            </button>
+            <h1 className="text-sm font-bold tracking-[0.2em] lowercase text-foreground/80">
+              record payment
+            </h1>
+            <div className="w-12" />
+          </div>
 
-          {/* Error Message */}
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Amount Input */}
-            <div className="space-y-2">
-              <Label htmlFor="amount">
-                Amount Received (₹)
-              </Label>
-              <Input
-                type="number"
-                id="amount"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="text-lg"
-                placeholder="e.g., 8000"
-                min="0"
-                step="0.01"
-                required
-              />
+          {/* Content */}
+          <div className="flex-1 flex flex-col items-center px-6 overflow-y-auto">
+            {/* Amount Display */}
+            <div className="mt-4 mb-2">
+              <p className="text-[10px] font-mono lowercase opacity-40 tracking-wider text-center mb-2">
+                total amount
+              </p>
+              <div className="flex items-baseline justify-center">
+                <span className="text-4xl font-bold font-mono opacity-40">₹</span>
+                <span className="text-6xl font-bold font-mono">{displayAmount}</span>
+              </div>
             </div>
 
-            {/* Use Credit Balance Checkbox */}
-            {currentCredit > 0 && (
-              <Alert className="bg-blue-500/10 border-blue-500/50">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="use-credit"
-                    checked={useCredit}
-                    onChange={(e) => setUseCredit(e.target.checked)}
-                    className="w-5 h-5 rounded"
-                  />
-                  <label htmlFor="use-credit" className="flex-1 text-sm font-medium cursor-pointer">
-                    Use Credit Balance ({formatCurrency(currentCredit)} available)
-                  </label>
-                </div>
-              </Alert>
+            {/* Client Chip */}
+            <div className="border border-foreground/20 rounded-full px-4 py-2 mb-4">
+              <span className="text-xs font-mono lowercase tracking-wider opacity-60">
+                client: {clientName.toLowerCase()}
+              </span>
+            </div>
+
+            {/* Auto-calculated info */}
+            {amount && classesAdded && (
+              <p className="text-xs font-mono lowercase opacity-40 mb-2">
+                = {classesAdded} {parseInt(classesAdded) === 1 ? 'class' : 'classes'} at {formatCurrency(currentRate)}/class
+              </p>
             )}
 
-            {/* Classes Added */}
-            <div className="space-y-2">
-              <Label htmlFor="classes">
-                Classes Added
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  id="classes"
-                  inputMode="numeric"
-                  value={classesAdded}
-                  onChange={(e) => {
-                    setClassesAdded(e.target.value)
-                    setIsManualClasses(true)
-                  }}
-                  className="text-lg pr-10"
-                  placeholder="Auto-calculated"
-                  min="0"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsManualClasses(false)
-                    // Trigger recalculation
-                    const amountNum = parseFloat(amount)
-                    if (!isNaN(amountNum) && amountNum > 0) {
-                      const calculatedClasses = Math.floor(amountNum / rateInRupees)
-                      setClassesAdded(calculatedClasses.toString())
-                    }
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  title="Reset to auto-calculated value"
-                >
-                  ✎
-                </button>
-              </div>
-              {amount && classesAdded && !useCredit && (
-                <p className="text-sm text-muted-foreground">
-                  ₹{parseFloat(amount).toLocaleString('en-IN')} ÷ {formatCurrency(currentRate)} = {classesAdded} classes
-                </p>
-              )}
-              {amount && classesAdded && useCredit && getCreditUsed() > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  (₹{parseFloat(amount).toLocaleString('en-IN')} + {formatCurrency(getCreditUsed())} credit) ÷ {formatCurrency(currentRate)} = {classesAdded} classes
-                </p>
-              )}
-            </div>
+            {/* Error */}
+            {error && (
+              <p className="text-xs text-destructive bg-destructive/10 px-4 py-2 rounded-full mb-4">
+                {error}
+              </p>
+            )}
 
-            {/* Payment Date */}
-            <div className="space-y-2">
-              <Label htmlFor="payment-date">
-                Payment Date
-              </Label>
-              <Input
-                type="date"
-                id="payment-date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                max={getTodayDate()}
-                className="text-lg [color-scheme:dark]"
-                style={{ colorScheme: 'dark' }}
-                required
-              />
-            </div>
+            {/* Expandable Details */}
+            <button
+              type="button"
+              onClick={() => setShowDetails(!showDetails)}
+              className="flex items-center gap-1 text-[10px] font-mono lowercase opacity-40 hover:opacity-70 transition-opacity mb-4"
+            >
+              details {showDetails ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
 
-            {/* Balance Preview */}
-            {classesAdded !== '' && (
-              <Alert className="bg-blue-500/10 border-blue-500/50">
-                <AlertDescription>
-                  <p className="text-sm font-medium mb-2">
-                    Payment Summary
-                  </p>
-                  <div className="space-y-1">
-                    <p className="text-sm">
-                      Balance: {currentBalance} + {classesAdded} = <strong>{getNewBalance()}</strong> classes
-                    </p>
+            {showDetails && (
+              <div className="w-full max-w-[320px] space-y-4 mb-4">
+                {/* Credit Toggle */}
+                {currentCredit > 0 && (
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useCredit}
+                      onChange={(e) => setUseCredit(e.target.checked)}
+                      className="w-4 h-4 rounded accent-primary"
+                    />
+                    <span className="text-xs font-mono lowercase opacity-60">
+                      use credit ({formatCurrency(currentCredit)})
+                    </span>
+                  </label>
+                )}
+
+                {/* Date */}
+                <div className="flex items-center gap-2">
+                  <Calendar size={14} className="opacity-40" />
+                  <input
+                    type="date"
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                    max={getTodayDate()}
+                    className="bg-transparent border-b border-foreground/20 text-sm font-mono py-1 focus:border-foreground outline-none"
+                  />
+                </div>
+
+                {/* Summary */}
+                {classesAdded !== '' && (
+                  <div className="text-xs font-mono lowercase opacity-50 space-y-1 border-t border-foreground/10 pt-3">
+                    <p>balance: {currentBalance} + {classesAdded} = {getNewBalance()} classes</p>
                     {useCredit && getCreditUsed() > 0 && (
-                      <p className="text-sm">
-                        Credit Used: {formatCurrency(getCreditUsed())}
-                      </p>
+                      <p className="text-primary">credit used: {formatCurrency(getCreditUsed())}</p>
                     )}
-                    <p className="text-sm">
-                      Credit: {formatCurrency(currentCredit)} {useCredit && getCreditUsed() > 0 ? `- ${formatCurrency(getCreditUsed())}` : ''} {getCreditRemainder() > 0 ? `+ ${formatCurrency(getCreditRemainder())}` : ''} = <strong>{formatCurrency(getNewCredit())}</strong>
-                    </p>
-                    {useCredit && getCreditUsed() > 0 && (
-                      <p className="text-xs text-blue-400 mt-2">
-                        ✅ Using {formatCurrency(getCreditUsed())} credit to complete this payment
-                      </p>
-                    )}
-                    {classesAdded === '0' && getCreditRemainder() > 0 && (
-                      <p className="text-xs text-blue-400 mt-2">
-                        💰 Full amount of {formatCurrency(getCreditRemainder())} will be added as credit
-                      </p>
-                    )}
-                    {classesAdded !== '0' && !useCredit && getCreditRemainder() > 0 && (
-                      <p className="text-xs text-blue-400 mt-2">
-                        💡 Remainder of {formatCurrency(getCreditRemainder())} will be added as credit
-                      </p>
+                    <p>credit: {formatCurrency(getNewCredit())}</p>
+                    {getCreditRemainder() > 0 && (
+                      <p className="text-status-healthy">+{formatCurrency(getCreditRemainder())} credit added</p>
                     )}
                   </div>
-                </AlertDescription>
-              </Alert>
+                )}
+              </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                onClick={handleCloseModal}
-                disabled={isSubmitting}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                size="lg"
-                disabled={isSubmitting || !amount || classesAdded === '' || !paymentDate}
-                className="flex-1"
-              >
-                {isSubmitting ? 'Saving...' : 'Save Payment'}
-              </Button>
+            {/* Keypad */}
+            <div className="mt-auto mb-4">
+              <NumericKeypad
+                onPress={handleKeyPress}
+                onDelete={handleKeyDelete}
+                showDecimal={true}
+              />
             </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+
+            {/* Confirm Button */}
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !amount || amount === '0' || classesAdded === ''}
+              className="w-full max-w-[320px] h-14 rounded-full bg-foreground text-background font-bold text-sm lowercase tracking-wider flex items-center justify-center gap-2 mb-8 disabled:opacity-30 transition-opacity"
+            >
+              <Check size={18} strokeWidth={2} />
+              {isSubmitting ? 'saving...' : 'confirm payment'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Success Overlay */}
       {showSuccess && classesAddedFromResponse !== null && (

@@ -160,6 +160,7 @@ export async function verifyAllBalances(trainerId: string): Promise<
     .from('clients')
     .select('id, name')
     .eq('trainer_id', trainerId)
+    .eq('is_deleted', false)
 
   if (!clients || clients.length === 0) {
     return []

@@ -185,8 +185,8 @@ export function PunchListItem({ id, punchDate, paidWithCredit = false }: PunchLi
 
   if (showSuccess) {
     return (
-      <div className="flex items-center justify-center py-2 border-b last:border-0 bg-green-500/10 animate-pulse">
-        <span className="text-green-500 font-medium">✓ Punch removed</span>
+      <div className="flex items-center justify-center py-2 border-b last:border-0 bg-status-healthy/10 animate-pulse">
+        <span className="text-status-healthy font-medium">✓ Punch removed</span>
       </div>
     )
   }
@@ -202,7 +202,7 @@ export function PunchListItem({ id, punchDate, paidWithCredit = false }: PunchLi
           <span>{formatDate(punchDate)}</span>
           <span className="text-muted-foreground text-sm ml-3">{formatWeekday(punchDate)}</span>
           {paidWithCredit && (
-            <span className="text-blue-400 text-xs ml-3 font-medium">
+            <span className="text-primary text-xs ml-3 font-medium">
               💳 Paid from credit
             </span>
           )}
@@ -211,7 +211,7 @@ export function PunchListItem({ id, punchDate, paidWithCredit = false }: PunchLi
           <div className="flex gap-2">
             <button
               onClick={handleEditClick}
-              className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded p-2 transition-colors"
+              className="text-primary hover:text-primary/80 hover:bg-primary/10 rounded p-2 transition-colors"
               aria-label="Edit punch date"
             >
               ✎

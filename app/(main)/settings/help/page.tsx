@@ -1,10 +1,10 @@
-import { MobileLayout } from '@/components/MobileLayout'
+import { AppShell } from '@/components/AppShell'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function HelpPage() {
   return (
-    <MobileLayout title="Help & Support" showBackButton={true} backHref="/settings">
+    <AppShell title="help & support" showBackButton={true} backHref="/settings">
       <Card>
         <CardContent className="p-6">
           <Alert>
@@ -14,6 +14,6 @@ export default function HelpPage() {
           </Alert>
         </CardContent>
       </Card>
-    </MobileLayout>
+    </AppShell>
   )
 }

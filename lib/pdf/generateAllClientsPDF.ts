@@ -1,7 +1,8 @@
 /**
  * All Clients PDF Generator
  *
- * Generates summary PDF of all clients with statistics and balance overview.
+ * Generates summary PDF of all clients matching the statement design style:
+ * Grab icon + header, summary stats, client list table.
  */
 
 import jsPDF from 'jspdf'
@@ -9,32 +10,36 @@ import autoTable from 'jspdf-autotable'
 import type { AllClientsPDFData } from './types'
 import {
   PDF_CONFIG,
-  addHeader,
+  addStatementHeader,
   addFooter,
   addSectionDivider,
   addSectionHeading,
   formatCurrency,
+  formatDate,
   sanitizeText,
 } from './pdfTemplate'
 
-export function generateAllClientsPDF(data: AllClientsPDFData): void {
+export function generateAllClientsPDF(data: AllClientsPDFData): { doc: jsPDF; filename: string } {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
   })
 
-  // Add header
-  let yPos = addHeader(doc, 'ALL CLIENTS SUMMARY', {
-    name: data.trainer.brand_name,
-    address: data.trainer.brand_address,
-    phone: data.trainer.brand_phone,
-    email: data.trainer.brand_email,
-  })
+  const today = new Date().toISOString().split('T')[0]
+
+  // Header: grab icon, STATEMENT title, date, brand info
+  let yPos = addStatementHeader(
+    doc,
+    data.trainer,
+    `#ALL-${today.slice(0, 7)}`,
+    formatDate(today)
+  )
 
   // Period info
   doc.setFontSize(PDF_CONFIG.fontSize.body)
-  doc.setFont('helvetica', 'bold')
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...PDF_CONFIG.colors.gray)
   doc.text(`Period: ${data.dateRange.label}`, PDF_CONFIG.marginLeft, yPos)
   yPos += 8
 
@@ -45,6 +50,7 @@ export function generateAllClientsPDF(data: AllClientsPDFData): void {
   yPos = addSectionHeading(doc, yPos, 'SUMMARY STATISTICS')
 
   doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...PDF_CONFIG.colors.black)
   doc.text(`Total Clients: ${data.summary.totalClients}`, PDF_CONFIG.marginLeft, yPos)
   yPos += 6
   doc.text(`Total Classes (Remaining): ${data.summary.totalClasses}`, PDF_CONFIG.marginLeft, yPos)
@@ -74,40 +80,37 @@ export function generateAllClientsPDF(data: AllClientsPDFData): void {
       client.amountDue > 0 ? formatCurrency(client.amountDue) : '-',
     ])
 
-    // Generate table using autoTable
     autoTable(doc as any, {
       startY: yPos,
       head: [['Name', 'Phone', 'Balance', 'Amount Due']],
       body: tableData,
-      theme: 'grid',
+      theme: 'plain',
       headStyles: {
-        fillColor: [30, 30, 30],
-        textColor: [235, 235, 230],
-        fontSize: 10,
+        fillColor: [245, 245, 245],
+        textColor: [...PDF_CONFIG.colors.gray],
+        fontSize: 8,
         fontStyle: 'bold',
       },
       bodyStyles: {
-        fillColor: [10, 10, 10], // Consistent black background
         fontSize: 10,
-        textColor: [235, 235, 230],
+        textColor: [...PDF_CONFIG.colors.black],
       },
       styles: {
         cellPadding: 3,
-        lineColor: [60, 60, 60],
+        lineColor: [230, 230, 230],
         lineWidth: 0.1,
       },
       columnStyles: {
-        0: { cellWidth: 55 }, // Name
-        1: { cellWidth: 40 }, // Phone
-        2: { cellWidth: 20, halign: 'center' }, // Balance
-        3: { cellWidth: 35, halign: 'right' }, // Amount Due
+        0: { cellWidth: 55 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 35, halign: 'right' },
       },
-      didParseCell: (data) => {
-        // Highlight negative balances in red
-        if (data.column.index === 2 && data.cell.raw) {
-          const balance = parseInt(data.cell.raw as string)
+      didParseCell: (cellData) => {
+        if (cellData.column.index === 2 && cellData.cell.raw) {
+          const balance = parseInt(cellData.cell.raw as string)
           if (balance < 0) {
-            data.cell.styles.textColor = [220, 38, 38]
+            cellData.cell.styles.textColor = [220, 38, 38]
           }
         }
       },
@@ -119,9 +122,17 @@ export function generateAllClientsPDF(data: AllClientsPDFData): void {
   addFooter(doc)
 
   // Generate filename
-  const today = new Date().toISOString().split('T')[0]
   const filename = `All_Clients_Summary_${today}.pdf`
 
-  // Download PDF
+  return { doc, filename }
+}
+
+export function downloadAllClientsPDF(data: AllClientsPDFData): void {
+  const { doc, filename } = generateAllClientsPDF(data)
   doc.save(filename)
+}
+
+export function getAllClientsPDFBlob(data: AllClientsPDFData): { blob: Blob; filename: string } {
+  const { doc, filename } = generateAllClientsPDF(data)
+  return { blob: doc.output('blob'), filename }
 }

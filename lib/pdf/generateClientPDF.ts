@@ -1,202 +1,107 @@
 /**
  * Client PDF Generator
  *
- * Generates individual client statement PDFs with punches, payments, and balance info.
+ * Generates individual client statement PDFs matching the invoice-style design:
+ * Brand icon + STATEMENT header, BILL TO, line items table, TOTAL DUE.
  */
 
 import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import type { ClientPDFData } from './types'
 import {
   PDF_CONFIG,
-  addHeader,
+  addStatementHeader,
+  addBillTo,
+  addLineItemsTable,
+  addTotalDue,
   addFooter,
-  addSectionDivider,
-  addSectionHeading,
   checkPageBreak,
   formatCurrency,
+  formatDateShort,
   formatDate,
-  sanitizeText,
+  generateInvoiceCode,
 } from './pdfTemplate'
 
-export function generateClientPDF(data: ClientPDFData): void {
+export function generateClientPDF(data: ClientPDFData): { doc: jsPDF; filename: string } {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
   })
 
-  // Add header
-  let yPos = addHeader(doc, 'CLIENT STATEMENT', {
-    name: data.trainer.brand_name,
-    address: data.trainer.brand_address,
-    phone: data.trainer.brand_phone,
-    email: data.trainer.brand_email,
+  const today = new Date().toISOString().split('T')[0]
+  const invoiceCode = generateInvoiceCode(data.client.name, today)
+  const statementDate = formatDate(today)
+
+  // Header: brand icon, STATEMENT, invoice code, date, brand name, address
+  let yPos = addStatementHeader(doc, data.trainer, invoiceCode, statementDate)
+
+  // BILL TO: client name + phone
+  yPos = addBillTo(doc, yPos, data.client.name, data.client.phone)
+
+  // Build line items — punches as "Training Session" rows with per-class rate
+  const lineItems: Array<{ description: string; date: string; amount: string }> = []
+
+  // Determine rate per class from the most recent payment, or show "-"
+  const ratePerClass = data.payments.length > 0
+    ? data.payments[0].rate_at_payment
+    : 0
+
+  data.punches.forEach((punch) => {
+    lineItems.push({
+      description: 'Training Session',
+      date: formatDateShort(punch.punch_date),
+      amount: ratePerClass > 0 ? formatCurrency(ratePerClass) : '-',
+    })
   })
 
-  // Client info
-  doc.setFontSize(PDF_CONFIG.fontSize.body)
-  doc.setFont('helvetica', 'bold')
-  doc.text(`Client: ${sanitizeText(data.client.name)}`, PDF_CONFIG.marginLeft, yPos)
-  yPos += 5
+  // Add payment rows below punches
+  data.payments.forEach((payment) => {
+    const note = payment.credit_added && payment.credit_added > 0
+      ? ` +${formatCurrency(payment.credit_added)} credit`
+      : ''
+    lineItems.push({
+      description: `Payment (${payment.classes_added} classes)${note}`,
+      date: formatDateShort(payment.payment_date),
+      amount: formatCurrency(payment.amount),
+    })
+  })
 
-  if (data.client.phone) {
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Phone: ${sanitizeText(data.client.phone)}`, PDF_CONFIG.marginLeft, yPos)
-    yPos += 5
-  }
-
-  doc.text(`Period: ${data.dateRange.label}`, PDF_CONFIG.marginLeft, yPos)
-  yPos += 8
-
-  // Section divider
-  yPos = addSectionDivider(doc, yPos)
-
-  // CLASSES ATTENDED SECTION
-  yPos = addSectionHeading(doc, yPos, 'CLASSES ATTENDED')
-
-  if (data.punches.length === 0) {
+  if (lineItems.length === 0) {
+    doc.setFontSize(PDF_CONFIG.fontSize.body)
     doc.setFont('helvetica', 'italic')
     doc.setTextColor(...PDF_CONFIG.colors.gray)
-    doc.text('No classes in selected period', PDF_CONFIG.marginLeft, yPos)
+    doc.text('No activity in selected period', PDF_CONFIG.marginLeft, yPos)
     doc.setTextColor(...PDF_CONFIG.colors.black)
-    yPos += 10
+    yPos += 15
   } else {
-    // Prepare table data
-    const punchData = data.punches.map((punch) => [
-      formatDate(punch.punch_date),
-      punch.paid_with_credit ? 'Yes' : 'No',
-    ])
-
-    // Generate table using autoTable
-    autoTable(doc as any, {
-      startY: yPos,
-      head: [['Date', 'Paid with Credit']],
-      body: punchData,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [30, 30, 30],
-        textColor: [235, 235, 230],
-        fontSize: 10,
-        fontStyle: 'bold',
-      },
-      bodyStyles: {
-        fillColor: [10, 10, 10], // Consistent black background
-        fontSize: 10,
-        textColor: [235, 235, 230],
-      },
-      styles: {
-        cellPadding: 3,
-        lineColor: [60, 60, 60],
-        lineWidth: 0.1,
-      },
-      columnStyles: {
-        0: { cellWidth: 60 }, // Date
-        1: { cellWidth: 60 }, // Paid with Credit
-      },
-      margin: { left: PDF_CONFIG.marginLeft, right: PDF_CONFIG.marginRight },
-    })
-
-    yPos = (doc as any).lastAutoTable.finalY + 5
+    yPos = addLineItemsTable(doc, yPos, lineItems)
   }
 
-  // Section divider
-  yPos = addSectionDivider(doc, yPos)
+  // Total due section
+  yPos = checkPageBreak(doc, yPos, 50)
+  const isCredit = data.balance.amountDue === 0
+  const totalAmount = data.balance.amountDue > 0
+    ? formatCurrency(data.balance.amountDue)
+    : `${data.balance.current} classes`
 
-  // PAYMENTS RECEIVED SECTION
-  yPos = addSectionHeading(doc, yPos, 'PAYMENTS RECEIVED')
-
-  if (data.payments.length === 0) {
-    doc.setFont('helvetica', 'italic')
-    doc.setTextColor(...PDF_CONFIG.colors.gray)
-    doc.text('No payments in selected period', PDF_CONFIG.marginLeft, yPos)
-    doc.setTextColor(...PDF_CONFIG.colors.black)
-    yPos += 10
-  } else {
-    // Prepare table data with credit info in a Notes column
-    const paymentData = data.payments.map((payment) => {
-      const creditNotes = []
-      if (payment.credit_used && payment.credit_used > 0) {
-        creditNotes.push(`+${formatCurrency(payment.credit_used)} credit used`)
-      }
-      if (payment.credit_added && payment.credit_added > 0) {
-        creditNotes.push(`+${formatCurrency(payment.credit_added)} credit added`)
-      }
-
-      return [
-        formatDate(payment.payment_date),
-        formatCurrency(payment.amount),
-        payment.classes_added.toString(),
-        formatCurrency(payment.rate_at_payment),
-        creditNotes.join('\n') || '-',
-      ]
-    })
-
-    // Generate table using autoTable
-    autoTable(doc as any, {
-      startY: yPos,
-      head: [['Date', 'Amount', 'Classes', 'Rate', 'Notes']],
-      body: paymentData,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [30, 30, 30],
-        textColor: [235, 235, 230],
-        fontSize: 10,
-        fontStyle: 'bold',
-      },
-      bodyStyles: {
-        fillColor: [10, 10, 10], // Consistent black background
-        fontSize: 9,
-        textColor: [235, 235, 230],
-      },
-      styles: {
-        cellPadding: 3,
-        lineColor: [60, 60, 60],
-        lineWidth: 0.1,
-      },
-      columnStyles: {
-        0: { cellWidth: 30 }, // Date
-        1: { cellWidth: 35, halign: 'right' }, // Amount
-        2: { cellWidth: 20, halign: 'center' }, // Classes
-        3: { cellWidth: 30, halign: 'right' }, // Rate
-        4: { cellWidth: 55, fontSize: 8, fontStyle: 'italic', textColor: [150, 150, 150] }, // Notes
-      },
-      margin: { left: PDF_CONFIG.marginLeft, right: PDF_CONFIG.marginRight },
-    })
-
-    yPos = (doc as any).lastAutoTable.finalY + 5
-  }
-
-  // Section divider
-  yPos = addSectionDivider(doc, yPos)
-
-  // BALANCE SUMMARY
-  yPos = checkPageBreak(doc, yPos, 25)
-  doc.setFontSize(PDF_CONFIG.fontSize.heading)
-  doc.setFont('helvetica', 'bold')
-
-  doc.text(`CURRENT BALANCE: ${data.balance.current} classes`, PDF_CONFIG.marginLeft, yPos)
-  yPos += 7
-
-  doc.setFontSize(PDF_CONFIG.fontSize.body)
-  doc.text(`Credit Balance: ${formatCurrency(data.balance.credit)}`, PDF_CONFIG.marginLeft, yPos)
-  yPos += 7
-
-  if (data.balance.amountDue > 0) {
-    doc.setTextColor(220, 38, 38) // Red color for amount due
-    doc.text(`Amount Due: ${formatCurrency(data.balance.amountDue)}`, PDF_CONFIG.marginLeft, yPos)
-    doc.setTextColor(...PDF_CONFIG.colors.black)
-    yPos += 7
-  }
+  yPos = addTotalDue(doc, yPos, totalAmount, isCredit)
 
   // Footer
   addFooter(doc)
 
-  // Generate filename (sanitize and replace spaces)
-  const clientName = sanitizeText(data.client.name).replace(/\s+/g, '_')
-  const today = new Date().toISOString().split('T')[0]
+  // Filename
+  const clientName = data.client.name.replace(/[^a-zA-Z0-9]/g, '_')
   const filename = `${clientName}_Statement_${today}.pdf`
 
-  // Download PDF
+  return { doc, filename }
+}
+
+export function downloadClientPDF(data: ClientPDFData): void {
+  const { doc, filename } = generateClientPDF(data)
   doc.save(filename)
+}
+
+export function getClientPDFBlob(data: ClientPDFData): { blob: Blob; filename: string } {
+  const { doc, filename } = generateClientPDF(data)
+  return { blob: doc.output('blob'), filename }
 }

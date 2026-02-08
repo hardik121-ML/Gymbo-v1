@@ -65,7 +65,7 @@ export function SuccessOverlay({
           style={{
             width: '80px',
             height: '80px',
-            backgroundColor: '#4ADE80', // --status-healthy green
+            backgroundColor: 'var(--status-healthy)',
           }}
         >
           <Check className="w-10 h-10 text-white" strokeWidth={3} />

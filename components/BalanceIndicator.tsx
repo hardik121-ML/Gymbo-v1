@@ -21,11 +21,11 @@ function getBalanceStatus(balance: number): BalanceStatus {
 function getBalanceColor(status: BalanceStatus): string {
   switch (status) {
     case 'negative':
-      return 'bg-red-500'
+      return 'bg-status-negative'
     case 'low':
-      return 'bg-yellow-500'
+      return 'bg-status-warning'
     case 'healthy':
-      return 'bg-green-500'
+      return 'bg-status-healthy'
   }
 }
 
@@ -65,7 +65,7 @@ export function BalanceIndicator({ balance, size = 'md', showLabel = false }: Ba
         title={label}
       />
       {showLabel && (
-        <span className={`${textSizeClasses[size]} font-medium text-gray-700`}>
+        <span className={`${textSizeClasses[size]} font-medium text-muted-foreground`}>
           {label}
         </span>
       )}

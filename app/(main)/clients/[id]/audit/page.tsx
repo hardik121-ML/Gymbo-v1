@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { MobileLayout } from '@/components/MobileLayout'
+import { AppShell } from '@/components/AppShell'
 import { AuditTimeline } from '@/components/AuditTimeline'
 
 interface PageProps {
@@ -44,17 +44,18 @@ export default async function ClientAuditPage({ params }: PageProps) {
   const logs = auditLogs || []
 
   return (
-    <MobileLayout
-      title="History"
+    <AppShell
+      title="audit trail"
       showBackButton={true}
       backHref={`/clients/${clientId}`}
     >
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold">{client.name}</h2>
-        <p className="text-sm text-muted-foreground">Complete activity timeline</p>
+      <div className="mb-6">
+        <p className="text-xs font-mono lowercase opacity-50 tracking-wider">
+          client history: {client.name.toLowerCase()}
+        </p>
       </div>
 
       <AuditTimeline logs={logs} />
-    </MobileLayout>
+    </AppShell>
   )
 }

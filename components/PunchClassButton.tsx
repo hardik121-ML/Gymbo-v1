@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { SuccessOverlay } from '@/components/SuccessOverlay'
+import { HandMetal } from 'lucide-react'
 
 interface PunchClassButtonProps {
   clientId: string
@@ -120,23 +121,13 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
     <>
       {/* Main Punch Button */}
       <div className="flex flex-col items-center gap-2">
-        <Button
-          onClick={handlePunchClick}
-          disabled={showDatePicker || showSuccess}
-          size="lg"
-          className="w-full text-xl py-6"
-        >
-          👊 PUNCH CLASS
-        </Button>
-
-        {/* Choose Date Link */}
         <button
-          type="button"
           onClick={handlePunchClick}
           disabled={showDatePicker || showSuccess}
-          className="text-sm text-muted-foreground underline opacity-50 hover:opacity-100 transition-opacity py-3 min-h-[44px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+          className="w-full h-14 rounded-full bg-foreground text-background font-bold text-sm lowercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-30 transition-opacity shadow-xl"
         >
-          or choose a date
+          <HandMetal size={18} strokeWidth={1.5} />
+          punch class
         </button>
       </div>
 
@@ -144,24 +135,20 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
       <Dialog open={showDatePicker} onOpenChange={setShowDatePicker}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Record Class for {clientName}</DialogTitle>
-            <DialogDescription>
-              Select the date when the class took place. You can record classes up to 3 months back.
+            <DialogTitle className="lowercase">record class for {clientName.toLowerCase()}</DialogTitle>
+            <DialogDescription className="lowercase">
+              select the date when the class took place
             </DialogDescription>
           </DialogHeader>
 
-          {/* Error Message */}
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <p className="text-xs text-destructive bg-destructive/10 px-4 py-2 rounded-full mb-4">
+              {error}
+            </p>
           )}
 
-          {/* Date Input */}
           <div className="space-y-2 mb-6">
-            <Label htmlFor="punch-date">
-              Class Date
-            </Label>
+            <Label htmlFor="punch-date">class date</Label>
             <Input
               type="date"
               id="punch-date"
@@ -169,36 +156,31 @@ export function PunchClassButton({ clientId, clientName }: PunchClassButtonProps
               onChange={(e) => setSelectedDate(e.target.value)}
               min={getMinDate()}
               max={getTodayDate()}
-              className="text-lg cursor-pointer [color-scheme:dark]"
-              style={{
-                colorScheme: 'dark'
-              }}
+              className="text-lg cursor-pointer"
               autoFocus
             />
-            <p className="text-sm text-muted-foreground">
-              Can record classes up to 3 months back
+            <p className="text-xs font-mono text-muted-foreground lowercase">
+              up to 3 months back
             </p>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex gap-3">
             <Button
               variant="outline"
               size="lg"
               onClick={handleCancel}
               disabled={isPunching}
-              className="flex-1"
+              className="flex-1 lowercase"
             >
-              Cancel
+              cancel
             </Button>
-            <Button
-              size="lg"
+            <button
               onClick={handleConfirmPunch}
               disabled={isPunching || !selectedDate}
-              className="flex-1"
+              className="flex-1 h-14 rounded-full bg-foreground text-background font-bold text-sm lowercase tracking-wider disabled:opacity-30 transition-opacity"
             >
-              {isPunching ? 'Recording...' : 'Confirm Punch'}
-            </Button>
+              {isPunching ? 'recording...' : 'confirm punch'}
+            </button>
           </div>
         </DialogContent>
       </Dialog>

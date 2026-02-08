@@ -6,6 +6,7 @@
  */
 
 import jsPDF from 'jspdf'
+import type { BrandSettings } from './types'
 
 // PDF Configuration Constants
 export const PDF_CONFIG = {
@@ -14,88 +15,252 @@ export const PDF_CONFIG = {
   pageHeight: 297, // mm
 
   // Margins
-  marginLeft: 20,
-  marginRight: 20,
-  marginTop: 20,
+  marginLeft: 25,
+  marginRight: 25,
+  marginTop: 25,
   marginBottom: 20,
+
+  // Content width
+  get contentWidth() {
+    return this.pageWidth - this.marginLeft - this.marginRight
+  },
 
   // Font sizes
   fontSize: {
-    title: 16,
-    heading: 12,
+    title: 18,
+    heading: 11,
     body: 10,
-    footer: 8,
+    small: 8,
+    footer: 7,
+    totalDue: 24,
   },
 
   // Colors (RGB)
   colors: {
-    black: [0, 0, 0] as [number, number, number],
+    black: [30, 30, 30] as [number, number, number],
     gray: [128, 128, 128] as [number, number, number],
     lightGray: [200, 200, 200] as [number, number, number],
+    white: [255, 255, 255] as [number, number, number],
   },
-
-  // Line spacing
-  lineHeight: 1.5,
 }
 
 /**
- * Add header with trainer information to PDF
+ * Draw the brand icon (filled circle with bold "G" for Gymbo)
  */
-export function addHeader(
-  doc: jsPDF,
-  title: string,
-  trainerInfo: {
-    name: string | null
-    address: string | null
-    phone: string | null
-    email: string | null
-  }
-): number {
-  let yPos = PDF_CONFIG.marginTop
+export function drawBrandIcon(doc: jsPDF, x: number, y: number, size: number): void {
+  const radius = size / 2
+  const cx = x + radius
+  const cy = y + radius
 
-  // Title
-  doc.setFontSize(PDF_CONFIG.fontSize.title)
+  // Filled black circle
+  doc.setFillColor(...PDF_CONFIG.colors.black)
+  doc.circle(cx, cy, radius, 'F')
+
+  // White bold "G" centered inside
+  doc.setFontSize(size * 0.55)
   doc.setFont('helvetica', 'bold')
-  doc.text(title, PDF_CONFIG.pageWidth / 2, yPos, { align: 'center' })
-  yPos += 10
+  doc.setTextColor(...PDF_CONFIG.colors.white)
+  doc.text('G', cx, cy + size * 0.05, { align: 'center', baseline: 'middle' })
 
-  // Divider
-  doc.setDrawColor(...PDF_CONFIG.colors.lightGray)
-  doc.line(PDF_CONFIG.marginLeft, yPos, PDF_CONFIG.pageWidth - PDF_CONFIG.marginRight, yPos)
-  yPos += 8
-
-  // Trainer info
+  // Reset
+  doc.setTextColor(...PDF_CONFIG.colors.black)
   doc.setFontSize(PDF_CONFIG.fontSize.body)
   doc.setFont('helvetica', 'normal')
+}
 
-  const trainerName = sanitizeText(trainerInfo.name || 'Gymbo Trainer')
-  const trainerAddress = sanitizeText(trainerInfo.address || 'Address not set')
-  const trainerPhone = sanitizeText(trainerInfo.phone || 'Phone not set')
+/**
+ * Add statement header matching the design reference
+ * Returns the Y position after the header
+ */
+export function addStatementHeader(
+  doc: jsPDF,
+  trainerInfo: BrandSettings,
+  invoiceCode: string,
+  statementDate: string
+): number {
+  let yPos = PDF_CONFIG.marginTop
+  const rightX = PDF_CONFIG.pageWidth - PDF_CONFIG.marginRight
 
-  doc.text(`Trainer: ${trainerName}`, PDF_CONFIG.marginLeft, yPos)
-  yPos += 5
-  doc.text(`Address: ${trainerAddress}`, PDF_CONFIG.marginLeft, yPos)
-  yPos += 5
-  doc.text(`Phone: ${trainerPhone}`, PDF_CONFIG.marginLeft, yPos)
+  // Brand icon (top left)
+  drawBrandIcon(doc, PDF_CONFIG.marginLeft, yPos, 12)
+
+  // STATEMENT (top right, bold)
+  doc.setFontSize(PDF_CONFIG.fontSize.title)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...PDF_CONFIG.colors.black)
+  doc.text('STATEMENT', rightX, yPos + 5, { align: 'right' })
+
+  // Invoice code (right, small gray)
+  doc.setFontSize(PDF_CONFIG.fontSize.small)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...PDF_CONFIG.colors.gray)
+  doc.text(invoiceCode, rightX, yPos + 10, { align: 'right' })
+
+  // Date (right, small gray)
+  doc.text(statementDate, rightX, yPos + 14, { align: 'right' })
+
+  yPos += 20
+
+  // Trainer brand name (left, bold)
+  doc.setFontSize(PDF_CONFIG.fontSize.heading)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...PDF_CONFIG.colors.black)
+  const brandName = sanitizeText(trainerInfo.brand_name || 'Gymbo Trainer')
+  doc.text(brandName.toUpperCase(), PDF_CONFIG.marginLeft, yPos)
   yPos += 5
 
-  if (trainerInfo.email) {
-    doc.text(`Email: ${sanitizeText(trainerInfo.email)}`, PDF_CONFIG.marginLeft, yPos)
+  // Address (left, normal gray)
+  doc.setFontSize(PDF_CONFIG.fontSize.body)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...PDF_CONFIG.colors.gray)
+  const address = sanitizeText(trainerInfo.brand_address || '')
+  if (address) {
+    doc.text(address, PDF_CONFIG.marginLeft, yPos)
     yPos += 5
   }
 
-  // Divider
+  // Thin divider line
   yPos += 3
-  doc.line(PDF_CONFIG.marginLeft, yPos, PDF_CONFIG.pageWidth - PDF_CONFIG.marginRight, yPos)
+  doc.setDrawColor(...PDF_CONFIG.colors.lightGray)
+  doc.setLineWidth(0.3)
+  doc.line(PDF_CONFIG.marginLeft, yPos, rightX, yPos)
+  yPos += 10
+
+  return yPos
+}
+
+/**
+ * Add BILL TO section
+ */
+export function addBillTo(
+  doc: jsPDF,
+  yPos: number,
+  clientName: string,
+  clientContact: string | null
+): number {
+  // "BILL TO:" label
+  doc.setFontSize(PDF_CONFIG.fontSize.small)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...PDF_CONFIG.colors.gray)
+  doc.text('BILL TO:', PDF_CONFIG.marginLeft, yPos)
+  yPos += 5
+
+  // Client name (bold, black)
+  doc.setFontSize(PDF_CONFIG.fontSize.body)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...PDF_CONFIG.colors.black)
+  doc.text(sanitizeText(clientName), PDF_CONFIG.marginLeft, yPos)
+  yPos += 5
+
+  // Client phone/email (normal, gray)
+  if (clientContact) {
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...PDF_CONFIG.colors.gray)
+    doc.text(sanitizeText(clientContact), PDF_CONFIG.marginLeft, yPos)
+    yPos += 5
+  }
+
+  yPos += 8
+  return yPos
+}
+
+/**
+ * Add the line items table (DESCRIPTION | DATE | AMOUNT)
+ */
+export function addLineItemsTable(
+  doc: jsPDF,
+  yPos: number,
+  items: Array<{ description: string; date: string; amount: string }>
+): number {
+  const rightX = PDF_CONFIG.pageWidth - PDF_CONFIG.marginRight
+  const colDate = rightX - 50
+  const colAmount = rightX
+
+  // Table header
+  doc.setFontSize(PDF_CONFIG.fontSize.small)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...PDF_CONFIG.colors.gray)
+  doc.text('DESCRIPTION', PDF_CONFIG.marginLeft, yPos)
+  doc.text('DATE', colDate, yPos, { align: 'center' })
+  doc.text('AMOUNT', colAmount, yPos, { align: 'right' })
+  yPos += 2
+
+  // Header underline
+  doc.setDrawColor(...PDF_CONFIG.colors.lightGray)
+  doc.setLineWidth(0.5)
+  doc.line(PDF_CONFIG.marginLeft, yPos, rightX, yPos)
+  yPos += 7
+
+  // Rows
+  doc.setFontSize(PDF_CONFIG.fontSize.body)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...PDF_CONFIG.colors.black)
+
+  items.forEach((item) => {
+    yPos = checkPageBreak(doc, yPos, 8)
+
+    doc.setFont('helvetica', 'bold')
+    doc.text(sanitizeText(item.description), PDF_CONFIG.marginLeft, yPos)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...PDF_CONFIG.colors.gray)
+    doc.text(item.date, colDate, yPos, { align: 'center' })
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...PDF_CONFIG.colors.black)
+    doc.text(item.amount, colAmount, yPos, { align: 'right' })
+    yPos += 7
+
+    // Faint row separator
+    doc.setDrawColor(230, 230, 230)
+    doc.setLineWidth(0.1)
+    doc.line(PDF_CONFIG.marginLeft, yPos - 3, rightX, yPos - 3)
+  })
+
+  return yPos
+}
+
+/**
+ * Add total due section at the bottom
+ */
+export function addTotalDue(doc: jsPDF, yPos: number, totalAmount: string, isCredit: boolean): number {
+  const rightX = PDF_CONFIG.pageWidth - PDF_CONFIG.marginRight
+
+  yPos += 5
+
+  // Bold divider line
+  doc.setDrawColor(...PDF_CONFIG.colors.black)
+  doc.setLineWidth(1.5)
+  doc.line(PDF_CONFIG.marginLeft, yPos, rightX, yPos)
   yPos += 8
 
+  // "TOTAL DUE" label (right-aligned, small)
+  doc.setFontSize(PDF_CONFIG.fontSize.small)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...PDF_CONFIG.colors.gray)
+  doc.text(isCredit ? 'BALANCE' : 'TOTAL DUE', rightX, yPos, { align: 'right' })
+  yPos += 10
+
+  // Large amount (right-aligned)
+  doc.setFontSize(PDF_CONFIG.fontSize.totalDue)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...PDF_CONFIG.colors.black)
+  doc.text(totalAmount, rightX, yPos, { align: 'right' })
+  yPos += 12
+
+  // "Thank you for your business" (left, italic, gray)
+  doc.setFontSize(PDF_CONFIG.fontSize.body)
+  doc.setFont('helvetica', 'italic')
+  doc.setTextColor(...PDF_CONFIG.colors.gray)
+  doc.text('Thank you for your business', PDF_CONFIG.marginLeft, yPos)
+  yPos += 8
+
+  doc.setTextColor(...PDF_CONFIG.colors.black)
   return yPos
 }
 
 /**
  * Add footer with generation timestamp
  */
-export function addFooter(doc: jsPDF, pageNumber?: number): void {
+export function addFooter(doc: jsPDF): void {
   const yPos = PDF_CONFIG.pageHeight - PDF_CONFIG.marginBottom + 5
 
   doc.setFontSize(PDF_CONFIG.fontSize.footer)
@@ -108,14 +273,7 @@ export function addFooter(doc: jsPDF, pageNumber?: number): void {
     day: 'numeric',
   })
 
-  const footerText = `Generated on ${timestamp} via Gymbo`
-  doc.text(footerText, PDF_CONFIG.pageWidth / 2, yPos, { align: 'center' })
-
-  if (pageNumber !== undefined) {
-    doc.text(`Page ${pageNumber}`, PDF_CONFIG.pageWidth - PDF_CONFIG.marginRight, yPos, { align: 'right' })
-  }
-
-  // Reset text color
+  doc.text(`Generated on ${timestamp} via Gymbo`, PDF_CONFIG.pageWidth / 2, yPos, { align: 'center' })
   doc.setTextColor(...PDF_CONFIG.colors.black)
 }
 
@@ -124,49 +282,25 @@ export function addFooter(doc: jsPDF, pageNumber?: number): void {
  */
 export function addSectionDivider(doc: jsPDF, yPos: number): number {
   doc.setDrawColor(...PDF_CONFIG.colors.lightGray)
+  doc.setLineWidth(0.3)
   doc.line(PDF_CONFIG.marginLeft, yPos, PDF_CONFIG.pageWidth - PDF_CONFIG.marginRight, yPos)
   return yPos + 8
 }
 
 /**
- * Truncate text to fit within a specific width
+ * Add section heading
  */
-function truncateText(doc: jsPDF, text: string, maxWidth: number): string {
-  const textWidth = doc.getTextWidth(text)
+export function addSectionHeading(doc: jsPDF, yPos: number, heading: string): number {
+  doc.setFontSize(PDF_CONFIG.fontSize.heading)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...PDF_CONFIG.colors.black)
+  doc.text(heading, PDF_CONFIG.marginLeft, yPos)
+  yPos += 7
 
-  if (textWidth <= maxWidth - 2) {
-    return text
-  }
+  doc.setFontSize(PDF_CONFIG.fontSize.body)
+  doc.setFont('helvetica', 'normal')
 
-  // Binary search for the right length
-  let truncated = text
-  while (doc.getTextWidth(truncated + '...') > maxWidth - 2 && truncated.length > 0) {
-    truncated = truncated.slice(0, -1)
-  }
-
-  return truncated + '...'
-}
-
-/**
- * Add table row with text truncation for overflow
- */
-export function addTableRow(
-  doc: jsPDF,
-  yPos: number,
-  columns: string[],
-  columnWidths: number[],
-  isBold = false
-): number {
-  doc.setFont('helvetica', isBold ? 'bold' : 'normal')
-
-  let xPos = PDF_CONFIG.marginLeft
-  columns.forEach((text, index) => {
-    const truncatedText = truncateText(doc, text, columnWidths[index])
-    doc.text(truncatedText, xPos, yPos)
-    xPos += columnWidths[index]
-  })
-
-  return yPos + 6
+  return yPos
 }
 
 /**
@@ -184,32 +318,27 @@ export function checkPageBreak(doc: jsPDF, yPos: number, requiredSpace: number):
 }
 
 /**
- * Add section heading
- */
-export function addSectionHeading(doc: jsPDF, yPos: number, heading: string): number {
-  doc.setFontSize(PDF_CONFIG.fontSize.heading)
-  doc.setFont('helvetica', 'bold')
-  doc.text(heading, PDF_CONFIG.marginLeft, yPos)
-  yPos += 7
-
-  // Reset to body font
-  doc.setFontSize(PDF_CONFIG.fontSize.body)
-  doc.setFont('helvetica', 'normal')
-
-  return yPos
-}
-
-/**
  * Format currency (paise to rupees)
  * Using "Rs." instead of ₹ symbol for better PDF compatibility
  */
 export function formatCurrency(paise: number): string {
   const rupees = paise / 100
-  return `Rs. ${rupees.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+  return `Rs. ${rupees.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 /**
- * Format date for display
+ * Format date for display (short: "Jan 28")
+ */
+export function formatDateShort(dateString: string): string {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-IN', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+/**
+ * Format date for display (full: "Jan 31, 2024")
  */
 export function formatDate(dateString: string): string {
   const date = new Date(dateString)
@@ -221,34 +350,34 @@ export function formatDate(dateString: string): string {
 }
 
 /**
+ * Generate a unique-looking invoice code from client name and date
+ */
+export function generateInvoiceCode(clientName: string, date: string): string {
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const initials = clientName
+    .split(' ')
+    .map((w) => w[0]?.toUpperCase() || '')
+    .join('')
+    .slice(0, 3)
+  return `#${initials}-${year}-${month}`
+}
+
+/**
  * Sanitize text for PDF rendering
  * jsPDF's default Helvetica font doesn't support many Unicode characters
- * This function removes/replaces problematic characters
  */
 export function sanitizeText(text: string): string {
   if (!text) return ''
 
-  // Replace common problematic characters
   let sanitized = text
     .replace(/[^\x00-\x7F]/g, (char) => {
-      // Keep basic Latin characters, remove others
-      // Common replacements for Indian names
       const replacements: Record<string, string> = {
-        'ā': 'a',
-        'ī': 'i',
-        'ū': 'u',
-        'ē': 'e',
-        'ō': 'o',
-        'ñ': 'n',
-        'ś': 's',
-        'ṣ': 's',
-        'ṭ': 't',
-        'ḍ': 'd',
-        'ṃ': 'm',
-        'ṅ': 'n',
-        'ḥ': 'h',
+        'ā': 'a', 'ī': 'i', 'ū': 'u', 'ē': 'e', 'ō': 'o',
+        'ñ': 'n', 'ś': 's', 'ṣ': 's', 'ṭ': 't', 'ḍ': 'd',
+        'ṃ': 'm', 'ṅ': 'n', 'ḥ': 'h',
       }
-
       return replacements[char] || ''
     })
     .trim()

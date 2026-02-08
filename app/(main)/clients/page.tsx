@@ -1,11 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ClientList } from '@/components/ClientList'
-import { MobileLayout } from '@/components/MobileLayout'
-import { ClientPageActions } from '@/components/ClientPageActions'
+import { ClientsPageShell } from './ClientsPageShell'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Plus } from 'lucide-react'
 
 interface Client {
   id: string
@@ -16,7 +14,6 @@ interface Client {
 }
 
 export default async function ClientsPage() {
-  // Get current user from Supabase Auth
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -24,8 +21,6 @@ export default async function ClientsPage() {
     redirect('/login')
   }
 
-  // Fetch clients for this trainer (RLS automatically filters by user.id)
-  // Filter out soft-deleted clients
   const { data: clients, error } = await supabase
     .from('clients')
     .select('id, name, balance, current_rate, updated_at')
@@ -40,31 +35,23 @@ export default async function ClientsPage() {
   const clientList = (clients as Client[]) || []
 
   return (
-    <MobileLayout title="Gymbo">
-      {/* Client Actions (Add Client + Import Contacts) */}
-      <ClientPageActions />
-
-      {/* Client List or Empty State */}
+    <ClientsPageShell>
       {clientList.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <div className="text-6xl mb-4">👤</div>
-            <h2 className="text-xl font-semibold mb-2">
-              No clients yet
-            </h2>
-            <p className="text-muted-foreground mb-6">
-              Add your first client to start tracking classes and payments
-            </p>
-            <Link href="/clients/new">
-              <Button size="lg">
-                Add Your First Client
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <div className="text-center py-12">
+          <p className="text-muted-foreground text-sm lowercase mb-4">
+            no clients yet
+          </p>
+          <Link
+            href="/clients/new"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-foreground text-background font-bold text-sm lowercase tracking-wider"
+          >
+            <Plus size={16} strokeWidth={1.5} />
+            add your first client
+          </Link>
+        </div>
       ) : (
         <ClientList clients={clientList} />
       )}
-    </MobileLayout>
+    </ClientsPageShell>
   )
 }
