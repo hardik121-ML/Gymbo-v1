@@ -145,9 +145,9 @@ const { data: { user } } = await supabase.auth.getUser()
 - `POST /api/clients` - Create new client
 - `POST /api/clients/bulk-import` - Bulk import from contacts
 - `GET /api/clients/[id]` - Get client details
-- `PATCH /api/clients/[id]` - Update client
+- `PATCH /api/clients/[id]` - Update client (name, phone)
 - `DELETE /api/clients/[id]` - Soft delete client
-- `PATCH /api/clients/[id]/rate` - Change client rate
+- `PATCH /api/clients/[id]/rate` - Change client rate (called from edit page)
 
 **Punches:**
 - `POST /api/clients/[id]/punches` - Record a class
@@ -207,6 +207,14 @@ const { data: { user } } = await supabase.auth.getUser()
    ```
 4. Wrap in `MobileLayout` component
 
+### Editing Client Details
+
+The edit client page (`/clients/[id]/edit`) handles both basic info and rate changes:
+- **Basic Info**: Name and phone (always shown)
+- **Rate Changes**: When rate is modified, effective date field appears
+- **Backend**: Calls `/api/clients/[id]` for basic info, then `/api/clients/[id]/rate` if rate changed
+- **Audit**: Rate changes logged with RATE_CHANGE action to audit_log
+
 ### Using MobileLayout Component
 
 ```typescript
@@ -255,42 +263,24 @@ const { data: { user } } = await supabase.auth.getUser()
 - ✅ Swipe-to-delete with undo
 - ✅ Contact picker integration
 
-## Technical Debt & Future Work
+## Recent Major Features
 
-**Non-Blocking Technical Debt:**
+**Latest (2026-02-08):** PDF Export System Complete
+- Client-side PDF generation (jsPDF + jsPDF-AutoTable)
+- Per-client statements with date filtering + all clients summary
+- Brand settings preview functionality
+
+**Previous:** Visual enhancements (motion system, success overlays, punch card), bulk import, swipe-to-delete, audit timeline
+
+## Technical Constraints
+
+**Known Limitations:**
 - No test suite (unit, integration, e2e)
 - No rate limiting on auth endpoints
-- Linear integration not documented
 
-**Future Enhancements:**
+**Future Considerations:**
 - Test suite implementation
-- Rate limiting on auth endpoints
-- Performance monitoring (Vercel Analytics)
-- Error tracking (Sentry integration)
-
-**Overall Status:** 🟢 **Production Ready** - All core features complete and tested.
-
-## Recent Updates
-
-**2026-02-08: PDF Export System Complete (MAT-92, MAT-93, MAT-94, MAT-95)**
-- ✅ Client-side PDF generation using jsPDF + jsPDF-AutoTable
-- ✅ Per-client statement export with date filtering
-- ✅ All clients summary export with statistics
-- ✅ Brand settings preview functionality
-- ✅ Professional table layout with automatic text wrapping
-- ✅ Dark theme consistent styling
-- ✅ Cross-device compatibility verified
-
-**2026-02-05: Visual Enhancements (GYM-36, GYM-37, GYM-38)**
-- ✅ Comprehensive motion/animation system with accessibility
-- ✅ Success overlays for punch and payment actions
-- ✅ Punch card visual component (20-dot grid)
-
-**2026-01-12: Additional Features (GYM-27, GYM-29, GYM-30, GYM-31)**
-- ✅ Bulk import from phone contacts
-- ✅ Swipe-to-delete with undo
-- ✅ Audit timeline view
-- ✅ Date picker for punch button
+- Rate limiting for production security
 
 ## Development Notes
 
@@ -299,10 +289,17 @@ const { data: { user } } = await supabase.auth.getUser()
 - Dev mode uses Turbopack for faster HMR
 - PWA disabled in development, enabled in production
 
+**PWA Development:**
+- Service worker only active in production builds (`npm run build && npm run start`)
+- To test PWA features: build locally, serve on HTTPS (or localhost), and install
+- Clear service worker cache: Chrome DevTools → Application → Service Workers → Unregister
+- Serwist config in `app/sw.ts` and `next.config.mjs`
+
 **Common Issues:**
 - **Build fails:** Check TypeScript errors with `npm run build`
 - **Auth issues:** Verify Supabase env vars match in `.env.local` and Vercel
 - **PDF rendering issues:** Use "Rs." not "₹", sanitize Unicode characters
+- **Service worker stale cache:** Unregister SW in DevTools, hard refresh
 
 **Best Practices:**
 - Always use MobileLayout for pages
