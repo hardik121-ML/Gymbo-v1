@@ -16,7 +16,7 @@ export function NumericKeypad({ onPress, onDelete, showDecimal = false }: Numeri
           key={num}
           type="button"
           onClick={() => onPress(num.toString())}
-          className="h-16 w-16 rounded-full flex items-center justify-center text-2xl font-medium hover:bg-foreground/5 transition-colors active:scale-95"
+          className="h-16 w-16 rounded-full flex items-center justify-center text-2xl leading-none font-medium hover:bg-foreground/5 transition-colors active:scale-95"
         >
           {num}
         </button>
@@ -28,7 +28,7 @@ export function NumericKeypad({ onPress, onDelete, showDecimal = false }: Numeri
           <button
             type="button"
             onClick={() => onPress('.')}
-            className="h-16 w-16 rounded-full flex items-center justify-center text-2xl font-medium hover:bg-foreground/5 transition-colors active:scale-95"
+            className="h-16 w-16 rounded-full flex items-center justify-center text-2xl leading-none font-medium hover:bg-foreground/5 transition-colors active:scale-95"
           >
             .
           </button>
@@ -38,7 +38,7 @@ export function NumericKeypad({ onPress, onDelete, showDecimal = false }: Numeri
       <button
         type="button"
         onClick={() => onPress('0')}
-        className="h-16 w-16 rounded-full flex items-center justify-center text-2xl font-medium hover:bg-foreground/5 transition-colors active:scale-95"
+        className="h-16 w-16 rounded-full flex items-center justify-center text-2xl leading-none font-medium hover:bg-foreground/5 transition-colors active:scale-95"
       >
         0
       </button>

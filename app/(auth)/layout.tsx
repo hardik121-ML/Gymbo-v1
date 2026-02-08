@@ -25,7 +25,7 @@ export default function AuthLayout({
   }, [])
 
   return (
-    <div className="bg-background text-foreground min-h-screen">
+    <div className="bg-background text-foreground min-h-dvh">
       {children}
     </div>
   )

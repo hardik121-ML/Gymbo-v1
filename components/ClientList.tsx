@@ -84,21 +84,21 @@ export function ClientList({ clients }: ClientListProps) {
               href={`/clients/${client.id}`}
               className="flex items-center justify-between p-4 border border-foreground/10 rounded-xl hover:border-foreground transition-colors cursor-pointer group bg-background stagger-item"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border border-foreground text-foreground">
+              <div className="flex items-center gap-4 min-w-0 flex-1">
+                <div className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-sm font-bold border border-foreground text-foreground">
                   <User size={20} strokeWidth={1.5} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="font-bold text-sm tracking-tight flex items-center gap-2">
-                    {client.name}
+                    <span className="truncate">{client.name}</span>
                     {client.balance < 0 && (
-                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                      <div className="w-2 h-2 shrink-0 rounded-full bg-primary animate-pulse" />
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0 pl-3">
                 <span className="text-xl font-bold font-mono">
                   {client.balance}
                 </span>

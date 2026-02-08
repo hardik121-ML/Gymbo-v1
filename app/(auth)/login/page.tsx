@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { NumericKeypad } from '@/components/NumericKeypad'
 import { ArrowRight, ArrowLeft, Grab } from 'lucide-react'
@@ -13,6 +13,13 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [resendCooldown])
 
   const handleNumPress = (digit: string) => {
     if (step === 'phone') {
@@ -51,12 +58,34 @@ export default function LoginPage() {
       if (!response.ok) throw new Error(data.error || 'failed to send otp')
       setStep('otp')
       setError('')
+      setResendCooldown(30)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'failed to send otp')
     } finally {
       setIsLoading(false)
     }
   }
+
+  const handleResendOTP = useCallback(async () => {
+    if (resendCooldown > 0 || isLoading) return
+    setError('')
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: `+91${phone}` }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'failed to resend otp')
+      setOtp('')
+      setResendCooldown(30)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to resend otp')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [phone, resendCooldown, isLoading])
 
   const handleVerifyOTP = async (otpValue: string) => {
     setError('')
@@ -85,7 +114,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center relative w-full px-6 pt-safe-top pb-safe-bottom min-h-screen">
+    <div className="flex-1 flex flex-col items-center relative w-full px-6 pt-safe-top pb-safe-bottom h-dvh">
       {/* Header Section */}
       <div className="flex-1 flex flex-col items-center justify-center w-full gap-2">
         {/* Logo */}
@@ -143,13 +172,22 @@ export default function LoginPage() {
             new to gymbo? sign up
           </a>
         ) : (
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-2 text-[10px] font-mono lowercase opacity-60 hover:opacity-100 transition-opacity"
-          >
-            <ArrowLeft size={16} strokeWidth={1.5} />
-            back
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-2 text-[10px] font-mono lowercase opacity-60 hover:opacity-100 transition-opacity"
+            >
+              <ArrowLeft size={16} strokeWidth={1.5} />
+              back
+            </button>
+            <button
+              onClick={handleResendOTP}
+              disabled={resendCooldown > 0 || isLoading}
+              className="text-[10px] font-mono lowercase opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {resendCooldown > 0 ? `resend in ${resendCooldown}s` : 'resend code'}
+            </button>
+          </div>
         )}
       </div>
 
