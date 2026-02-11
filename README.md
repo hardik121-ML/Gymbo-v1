@@ -42,12 +42,11 @@ Edit `.env.local` and add your credentials:
 
 3. Set up Supabase and Twilio:
 
-- **Database Setup**: See `SUPABASE_SETUP.md` for detailed instructions or `RUN_MIGRATIONS.md` for quick steps
+- **Database Setup**: Run migrations in `supabase/migrations/` via Supabase SQL Editor, then regenerate types with `npx supabase gen types typescript --project-id lwkucbtmtylbbdskvrnc > types/database.types.ts`
 - **Twilio Setup**:
   1. Create a Twilio account and get your Account SID, Auth Token, and Verify Service SID
   2. In Supabase Dashboard → Authentication → Providers → Phone
   3. Enable Phone provider and add your Twilio credentials
-  4. See CLAUDE.md for detailed Twilio configuration steps
 
 4. Run the development server:
 
@@ -133,12 +132,20 @@ npm run lint         # Run ESLint
 
 **Note**: Build uses `--webpack` flag for Next.js 16 compatibility.
 
+## Deployment
+
+- **Production**: https://gymbo-v1.vercel.app (auto-deploys from `main` branch)
+- **Staging**: Vercel preview deployments from `staging` branch
+
+**Workflow:**
+1. Develop on feature branch
+2. Merge to `staging` for testing
+3. Test on staging URL
+4. Merge `staging` → `main` for production release
+
 ## Documentation
 
 - `CLAUDE.md` - Full architecture, development patterns, and technical guidance
-- `prd.md` - Complete product requirements document
-- `SUPABASE_SETUP.md` - Detailed database setup instructions
-- `RUN_MIGRATIONS.md` - Quick migration guide
 
 ## Production Checklist
 
