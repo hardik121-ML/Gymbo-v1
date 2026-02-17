@@ -6,15 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run dev              # Start dev server (localhost:3000, uses Turbopack)
-npm run build            # Production build (--webpack flag is baked into package.json)
+npm run build --webpack  # Production build (--webpack flag required for Next.js 16)
 npm run lint             # Run ESLint
 npm run start            # Start production server (needed to test PWA)
 
-# Regenerate database types after schema changes
+# Regenerate database types after schema changes (run from project root)
 npx supabase gen types typescript --project-id lwkucbtmtylbbdskvrnc > types/database.types.ts
 ```
 
 No test suite exists — there are no unit, integration, or e2e tests.
+
+**Important files:**
+- `proxy.ts` (root) — Auth proxy that handles redirects (NOT middleware.ts)
+- `types/database.types.ts` — Auto-generated Supabase types
+- `supabase/migrations/` — SQL migration files (run via Supabase SQL Editor)
 
 ## Project Overview
 
@@ -23,30 +28,6 @@ No test suite exists — there are no unit, integration, or e2e tests.
 **Tech Stack:** Next.js 16 (App Router) + TypeScript + React 19 + shadcn/ui + Tailwind CSS v4 + Supabase (PostgreSQL + Auth) + Serwist (PWA)
 
 **Production:** https://gymbo-v1.vercel.app (auto-deploys from `main`)
-**Staging:** Vercel preview deployment from `staging` branch
-
-## Deployment Workflow
-
-**Branch Strategy:**
-- `main` — Production branch, auto-deploys to https://gymbo-v1.vercel.app
-- `staging` — Staging branch, auto-deploys to Vercel preview URL
-- Feature branches — Create PR to `staging` for testing, then merge `staging` → `main` for production
-
-**Testing Flow:**
-1. Develop on feature branch
-2. Create PR to `staging` branch
-3. Test on staging deployment (Vercel preview URL)
-4. Once validated, merge `staging` → `main`
-5. Production auto-deploys from `main`
-
-**Environment Variables:**
-- Both staging and production can use the same Supabase project (shared database)
-- To separate environments completely, create a second Supabase project for staging and configure different env vars in Vercel
-
-**Vercel Configuration:**
-- Production Branch: `main` (configured in Vercel project settings)
-- Preview Branches: All branches including `staging` get automatic preview deployments
-- Each preview deployment gets a unique URL: `https://gymbo-v1-git-[branch]-[team].vercel.app`
 
 ## Architecture
 
@@ -121,15 +102,13 @@ Auth is handled by `proxy.ts`, not Next.js middleware. It validates sessions via
 - Authenticated users on `/login` or `/signup` → `/dashboard`
 - Unauthenticated users on `/clients/*`, `/settings/*`, or `/dashboard/*` → `/login`
 
-The proxy matcher pattern excludes: `_next/static`, `_next/image`, `favicon.ico`, and image files (svg, png, jpg, jpeg, gif, webp).
-
 When adding new protected routes, update the `isProtectedPage` check in `proxy.ts`.
 
 ### Supabase Clients
 
 - `lib/supabase/server.ts` — Server-side client (respects RLS, use in Server Components/API routes)
 - `lib/supabase/client.ts` — Browser client (for Client Components)
-- `lib/supabase/admin.ts` — Admin client (bypasses RLS, use ONLY for pre-auth checks like duplicate phone validation in signup API route)
+- `lib/supabase/admin.ts` — Admin client (bypasses RLS, for pre-auth checks only)
 
 ```typescript
 // Standard pattern for Server Components
@@ -137,17 +116,6 @@ const supabase = await createClient()
 const { data: { user } } = await supabase.auth.getUser()
 if (!user) redirect('/login')
 ```
-
-### Server/Client Component Pattern
-
-Pages that need both server-side data and client-side interactivity use a server component wrapper + client component child:
-
-```
-app/(main)/settings/page.tsx        → Server component (fetches trainer data from Supabase)
-app/(main)/settings/SettingsContent.tsx → Client component (receives data as props, handles theme/logout)
-```
-
-Same pattern in: `clients/[id]/page.tsx` + `ClientDetailContent.tsx`, `clients/[id]/export/page.tsx` + `ExportOptionsPage.tsx`. This avoids client-side fetch jitter — data is available on first render.
 
 ### Database
 
@@ -213,7 +181,9 @@ Each generator exports three variants: `generate*()` (returns jsPDF doc or strin
 
 ### PWA
 
-Serwist config in `app/sw.ts` and `next.config.ts`. Service worker disabled in development, enabled in production. To test: `npm run build && npm run start`.
+Serwist config in `app/sw.ts` and `next.config.ts`. Service worker disabled in development, enabled in production.
+
+**Testing PWA locally:** Run `npm run build && npm run start` then visit `http://localhost:3000`. For full PWA features (like installation prompts), test on production URL or use a local HTTPS server.
 
 ### Animation System
 
@@ -232,4 +202,3 @@ Defined in `app/globals.css`. Key classes: `.screen-enter` (page transitions), `
 - **Auth issues:** Verify Supabase env vars in `.env.local` match Vercel
 - **PDF rendering:** Use `"Rs."` not `"₹"`, sanitize Unicode for jsPDF
 - **Stale service worker:** Unregister in DevTools → Application → Service Workers
-- **Mobile viewport:** Auth pages use `h-dvh` (not `min-h-screen`) to avoid `100vh` overflow on mobile browsers where the address bar is part of the viewport height
